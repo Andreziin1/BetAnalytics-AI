@@ -1,53 +1,36 @@
 def calculate_basic_probability(matches):
 
-    finished_matches = []
+    total_matches = 0
+    home_wins = 0
+    away_wins = 0
+    draws = 0
 
     for match in matches:
 
-        if match["status"] == "FINISHED":
+        home_score = match.get("score_home")
+        away_score = match.get("score_away")
 
-            if match["home_score"] is not None and match["away_score"] is not None:
+        if home_score is None or away_score is None:
+            continue
 
-                finished_matches.append(match)
+        total_matches += 1
 
-    total_matches = len(finished_matches)
+        if home_score > away_score:
+            home_wins += 1
+        elif away_score > home_score:
+            away_wins += 1
+        else:
+            draws += 1
 
     if total_matches == 0:
-
         return {
             "home_win": 0,
             "draw": 0,
             "away_win": 0
         }
 
-    home_wins = 0
-    draws = 0
-    away_wins = 0
-
-    for match in finished_matches:
-
-        home_score = match["home_score"]
-        away_score = match["away_score"]
-
-        if home_score > away_score:
-            home_wins += 1
-
-        elif home_score == away_score:
-            draws += 1
-
-        else:
-            away_wins += 1
-
-    probabilities = {
-
+    return {
         "home_win": round((home_wins / total_matches) * 100, 2),
-
         "draw": round((draws / total_matches) * 100, 2),
-
         "away_win": round((away_wins / total_matches) * 100, 2)
-
     }
-
-    return probabilities
-
-# teste github

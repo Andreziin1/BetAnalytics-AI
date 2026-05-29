@@ -1,13 +1,27 @@
 def calculate_goal_statistics(matches):
 
-    finished_matches = []
+    total_goals = 0
+    total_matches = 0
+    over_2_5_matches = 0
+    under_2_5_matches = 0
 
     for match in matches:
-        if match["status"] == "FINISHED":
-            if match["home_score"] is not None and match["away_score"] is not None:
-                finished_matches.append(match)
 
-    total_matches = len(finished_matches)
+        home_score = match.get("score_home")
+        away_score = match.get("score_away")
+
+        if home_score is None or away_score is None:
+            continue
+
+        goals = home_score + away_score
+
+        total_goals += goals
+        total_matches += 1
+
+        if goals > 2.5:
+            over_2_5_matches += 1
+        else:
+            under_2_5_matches += 1
 
     if total_matches == 0:
         return {
@@ -16,22 +30,8 @@ def calculate_goal_statistics(matches):
             "under_2_5_percentage": 0
         }
 
-    total_goals = 0
-    over_2_5 = 0
-    under_2_5 = 0
-
-    for match in finished_matches:
-        match_goals = match["home_score"] + match["away_score"]
-
-        total_goals += match_goals
-
-        if match_goals > 2.5:
-            over_2_5 += 1
-        else:
-            under_2_5 += 1
-
     return {
         "average_goals": round(total_goals / total_matches, 2),
-        "over_2_5_percentage": round((over_2_5 / total_matches) * 100, 2),
-        "under_2_5_percentage": round((under_2_5 / total_matches) * 100, 2)
+        "over_2_5_percentage": round((over_2_5_matches / total_matches) * 100, 2),
+        "under_2_5_percentage": round((under_2_5_matches / total_matches) * 100, 2)
     }
