@@ -1,4 +1,4 @@
-def calculate_basic_probability(matches):
+def calculate_probabilities(matches):
 
     total_matches = 0
     home_wins = 0
@@ -7,8 +7,8 @@ def calculate_basic_probability(matches):
 
     for match in matches:
 
-        home_score = match.get("score_home")
-        away_score = match.get("score_away")
+        home_score = match.get("home_score")
+        away_score = match.get("away_score")
 
         if home_score is None or away_score is None:
             continue
@@ -17,8 +17,10 @@ def calculate_basic_probability(matches):
 
         if home_score > away_score:
             home_wins += 1
+
         elif away_score > home_score:
             away_wins += 1
+
         else:
             draws += 1
 

@@ -9,8 +9,8 @@ def analyze_recent_trends(matches):
 
     for match in recent_matches:
 
-        home_score = match.get("score_home")
-        away_score = match.get("score_away")
+        home_score = match.get("home_score")
+        away_score = match.get("away_score")
 
         if home_score is None or away_score is None:
             continue

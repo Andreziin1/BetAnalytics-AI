@@ -1,12 +1,15 @@
 import requests
 import os
+
 from dotenv import load_dotenv
 
 load_dotenv()
 
 API_KEY = os.getenv("API_KEY")
 
-BASE_URL = "https://api.football-data.org/v4/competitions/CL/matches"
+BASE_URL = "https://api.football-data.org/v4/competitions/PL/matches?status=FINISHED"
+
+UPCOMING_URL = "https://api.football-data.org/v4/competitions/WC/matches?status=TIMED"
 
 headers = {
     "X-Auth-Token": API_KEY
@@ -14,73 +17,80 @@ headers = {
 
 
 def get_matches():
-    response = requests.get(BASE_URL, headers=headers)
+
+    response = requests.get(
+        BASE_URL,
+        headers=headers
+    )
 
     if response.status_code != 200:
-        print("Erro na API:", response.status_code)
-        print(response.text)
+        print("Erro:", response.status_code)
         return []
 
     data = response.json()
-
-    print("DEBUG API:")
-    print(data)
 
     matches = data.get("matches", [])
 
     formatted_matches = []
 
-    for match in matches:
-        formatted_match = {
-            "competition": match["competition"]["name"],
-            "home_team": match["homeTeam"]["name"],
-            "away_team": match["awayTeam"]["name"],
-            "date": match["utcDate"],
-            "status": match["status"],
-            "score_home": match["score"]["fullTime"]["home"],
-            "score_away": match["score"]["fullTime"]["away"]
-        }
+    for match in matches[:20]:
 
-        formatted_matches.append(formatted_match)
+        home_score = match["score"]["fullTime"]["home"]
+        away_score = match["score"]["fullTime"]["away"]
+
+        if home_score is None or away_score is None:
+            continue
+
+        formatted_matches.append({
+
+            "competition": match["competition"]["name"],
+
+            "home_team": match["homeTeam"]["name"],
+
+            "away_team": match["awayTeam"]["name"],
+
+            "date": match["utcDate"],
+
+            "status": match["status"],
+
+            "score_home": home_score,
+
+            "score_away": away_score
+        })
 
     return formatted_matches
 
 
 def get_upcoming_matches():
-    matches = get_matches()
 
-    upcoming_matches = []
+    response = requests.get(
+        UPCOMING_URL,
+        headers=headers
+    )
 
-    for match in matches:
-        if match["status"] in ["TIMED", "SCHEDULED"]:
-            upcoming_matches.append(match)
+    if response.status_code != 200:
+        print("Erro:", response.status_code)
+        return []
 
-    return upcoming_matches
+    data = response.json()
 
+    matches = data.get("matches", [])
 
-if __name__ == "__main__":
-    matches = get_matches()
+    formatted_matches = []
 
-    print("\nJOGOS ENCONTRADOS:")
-    for match in matches:
-        print(
-            match["status"],
-            "-",
-            match["home_team"],
-            "x",
-            match["away_team"],
-            "-",
-            match["date"]
-        )
+    for match in matches[:20]:
 
-    print("\nJOGOS FUTUROS:")
-    upcoming = get_upcoming_matches()
+        formatted_matches.append({
 
-    for match in upcoming:
-        print(
-            match["home_team"],
-            "x",
-            match["away_team"],
-            "-",
-            match["date"]
-        )
+            "competition": match["competition"]["name"],
+
+            "home_team": match["homeTeam"]["name"],
+
+            "away_team": match["awayTeam"]["name"],
+
+            "date": match["utcDate"],
+
+            "status": match["status"]
+        })
+
+    return formatted_matches
