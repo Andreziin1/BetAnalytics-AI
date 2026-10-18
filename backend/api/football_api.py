@@ -1,288 +1,295 @@
-import os
+"""Bounded cache and rate limiter, shared by one application process."""
+
+from collections import OrderedDict, deque
+from copy import deepcopy
 from datetime import datetime, timedelta, timezone
+from threading import Lock
+from time import monotonic
 
 import requests
-from dotenv import load_dotenv
+
+from backend.analytics.team_analysis import identity, parse_date
 
 
-load_dotenv()
+DEFAULT_COMPETITIONS = (
+    "PL", "PD", "SA", "BL1", "FL1", "CL", "PPL", "BSA", "DED"
+)
 
-API_KEY = os.getenv("API_KEY")
+COMPETITION_NAMES = {
+    "PL": "Premier League",
+    "PD": "La Liga",
+    "SA": "Serie A",
+    "BL1": "Bundesliga",
+    "FL1": "Ligue 1",
+    "CL": "Champions League",
+    "PPL": "Primeira Liga",
+    "BSA": "Brasileirão Série A",
+    "DED": "Eredivisie",
+}
 
 BASE_URL = "https://api.football-data.org/v4"
 
-HEADERS = {
-    "X-Auth-Token": API_KEY
-}
+
+class ProviderError(Exception):
+    def __init__(self, code, message, status=502, retry_after=None):
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.status = status
+        self.retry_after = retry_after
 
 
-# Competições disponíveis no Free Tier
-DEFAULT_COMPETITIONS = [
-    "PL",   # Premier League
-    "PD",   # La Liga
-    "SA",   # Serie A
-    "BL1",  # Bundesliga
-    "FL1",  # Ligue 1
-    "CL",   # Champions League
-    "PPL",  # Primeira Liga
-    "BSA",  # Brasileirão
-    "DED"   # Eredivisie
-]
+class FootballClient:
+    def __init__(self, settings, session=None, clock=monotonic):
+        self.settings = settings
+        self.session = session or requests.Session()
+        self.clock = clock
+        self.lock = Lock()
+        self.cache = OrderedDict()
+        self.calls = deque()
 
+    def close(self):
+        self.session.close()
 
-def _get(endpoint, params=None):
-    """
-    Realiza uma requisição GET para a API football-data.org.
-    """
+    def get(self, endpoint, params=None):
+        if not self.settings.api_key:
+            raise ProviderError(
+                "not_configured",
+                "Configure API_KEY no servidor.",
+                503,
+            )
 
-    if not API_KEY:
-        raise RuntimeError(
-            "API_KEY não encontrada no arquivo .env"
-        )
+        key = (endpoint, tuple(sorted((params or {}).items())))
 
-    url = f"{BASE_URL}{endpoint}"
+        with self.lock:
+            now = self.clock()
+            cached = self.cache.get(key)
 
-    try:
+            if cached and now - cached[0] < self.settings.cache_ttl:
+                self.cache.move_to_end(key)
+                return deepcopy(cached[1])
 
-        response = requests.get(
-            url,
-            headers=HEADERS,
-            params=params,
-            timeout=15
-        )
+            while self.calls and now - self.calls[0] >= 60:
+                self.calls.popleft()
 
-    except requests.RequestException as error:
+            if len(self.calls) >= self.settings.requests_per_minute:
+                retry = max(1, int(60 - (now - self.calls[0])) + 1)
+                raise ProviderError(
+                    "rate_limit",
+                    "Limite temporário de consultas. Tente novamente.",
+                    429,
+                    retry,
+                )
 
-        raise RuntimeError(
-            f"Não foi possível conectar à API football-data.org: {error}"
-        )
+            self.calls.append(now)
 
-    if response.status_code == 200:
-        return response.json()
+            try:
+                response = self.session.get(
+                    BASE_URL + endpoint,
+                    params=params,
+                    headers={"X-Auth-Token": self.settings.api_key},
+                    timeout=(20, 20),
+                    allow_redirects=False,
+                )
+            except requests.Timeout:
+                raise ProviderError(
+                    "timeout",
+                    "A fonte de dados demorou para responder.",
+                    504,
+                ) from None
+            except requests.RequestException:
+                raise ProviderError(
+                    "connection_error",
+                    "Não foi possível consultar a fonte de dados.",
+                    502,
+                ) from None
 
-    if response.status_code == 400:
-        raise RuntimeError(
-            f"Requisição inválida para a API football-data.org: "
-            f"{response.text}"
-        )
+            status = response.status_code
 
-    if response.status_code == 403:
-        raise RuntimeError(
-            "A API football-data.org recusou o acesso a este recurso "
-            "para a assinatura atual."
-        )
+            if status != 200:
+                # O fornecedor também usa HTTP 400 para token inválido.
+                # Classificar a mensagem conhecida sem expor o corpo externo.
+                if status == 400:
+                    try:
+                        failure = response.json()
+                    except ValueError:
+                        failure = {}
+                    if isinstance(failure, dict) and failure.get("message") == "Your API token is invalid.":
+                        raise ProviderError(
+                            "provider_auth", "Credencial da fonte de dados inválida. Confira API_KEY no .env do backend.", 503
+                        )
+                errors = {
+                    400: (
+                        "provider_bad_request",
+                        "A fonte rejeitou os parâmetros da consulta (HTTP 400).",
+                        502,
+                    ),
+                    401: (
+                        "provider_auth",
+                        "Credencial da fonte de dados inválida.",
+                        503,
+                    ),
+                    403: (
+                        "provider_forbidden",
+                        "Recurso indisponível para a assinatura configurada.",
+                        503,
+                    ),
+                    404: (
+                        "not_found",
+                        "Recurso não encontrado na fonte de dados.",
+                        404,
+                    ),
+                    429: (
+                        "rate_limit",
+                        "Limite da fonte de dados atingido. Tente novamente.",
+                        429,
+                    ),
+                }
 
-    if response.status_code == 404:
-        raise RuntimeError(
-            "Recurso não encontrado na API football-data.org."
-        )
+                code, message, public_status = errors.get(
+                    status,
+                    (
+                        "provider_error",
+                        "A fonte de dados recusou a consulta.",
+                        502,
+                    ),
+                )
 
-    if response.status_code == 429:
-        raise RuntimeError(
-            "Limite de chamadas da API football-data.org atingido. "
-            "Tente novamente em alguns segundos."
-        )
+                retry = None
+                if status == 429:
+                    raw = response.headers.get("Retry-After", "60")
+                    retry = (
+                        min(3600, max(1, int(raw)))
+                        if raw.isdigit()
+                        else 60
+                    )
 
-    raise RuntimeError(
-        f"Erro na API football-data.org: "
-        f"{response.status_code}"
-    )
+                raise ProviderError(
+                    code, message, public_status, retry
+                )
 
+            try:
+                data = response.json()
+            except ValueError:
+                raise ProviderError(
+                    "invalid_payload",
+                    "Resposta inválida da fonte de dados.",
+                ) from None
 
-def _get_upcoming_matches_window(
-    date_from,
-    date_to,
-    competitions
-):
-    """
-    Busca partidas dentro de uma janela de no máximo 10 dias.
+            if not isinstance(data, dict):
+                raise ProviderError(
+                    "invalid_payload",
+                    "Formato inesperado da fonte de dados.",
+                )
 
-    A API football-data.org possui uma limitação de período
-    para determinadas consultas.
-    """
+            if "matches" in data and not isinstance(data["matches"], list):
+                raise ProviderError(
+                    "invalid_payload",
+                    "Lista de partidas inválida.",
+                )
 
-    competition_codes = ",".join(competitions)
+            data["_retrieved_at"] = datetime.now(timezone.utc).isoformat()
 
-    data = _get(
-        "/matches",
-        params={
-            "competitions": competition_codes,
-            "dateFrom": date_from.isoformat(),
-            "dateTo": date_to.isoformat()
+            self.cache[key] = (self.clock(), deepcopy(data))
+            self.cache.move_to_end(key)
+
+            while len(self.cache) > 256:
+                self.cache.popitem(last=False)
+
+            return data
+
+    def match_list(self, endpoint, params):
+        data = self.get(endpoint, params)
+
+        if not isinstance(data.get("matches"), list):
+            raise ProviderError(
+                "invalid_payload",
+                "A fonte não retornou uma lista de partidas.",
+            )
+
+        return data
+
+    def upcoming(self, days, competitions, now):
+        start = now.date()
+        end = start + timedelta(days=days)
+
+        rows = []
+        seen = set()
+        discarded = 0
+
+        for code in competitions:
+            data = self.match_list(
+                f"/competitions/{code}/matches",
+                {
+                    "dateFrom": start.isoformat(),
+                    "dateTo": end.isoformat(),
+                },
+            )
+
+            for match in data["matches"]:
+                if not identity(match):
+                    discarded += 1
+                    continue
+
+                date = parse_date(match["utcDate"])
+                competition = match.get("competition")
+
+                if (
+                    not isinstance(competition, dict)
+                    or competition.get("code") not in competitions
+                ):
+                    continue
+
+                if (
+                    match["id"] in seen
+                    or match.get("status") not in ("SCHEDULED", "TIMED")
+                ):
+                    continue
+
+                if date < now or date.date() >= end:
+                    continue
+
+                seen.add(match["id"])
+
+                rows.append(
+                    {
+                        "id": match["id"],
+                        "date": date.isoformat(),
+                        "status": match["status"],
+                        "competition": competition,
+                        "home_team": match["homeTeam"],
+                        "away_team": match["awayTeam"],
+                    }
+                )
+
+        return {
+            "matches": sorted(
+                rows,
+                key=lambda match: (match["date"], match["id"]),
+            ),
+            "discarded": discarded,
+            "timezone": "UTC",
+            "days": days,
         }
-    )
 
-    return data.get("matches", [])
-
-
-def get_upcoming_matches(days=7, competitions=None):
-    """
-    Retorna partidas futuras das competições selecionadas.
-
-    O usuário pode solicitar até 30 dias.
-    Internamente, as consultas são divididas em janelas
-    de no máximo 10 dias para respeitar a API.
-    """
-
-    if competitions is None:
-        competitions = DEFAULT_COMPETITIONS
-
-    if days < 1:
-        raise ValueError(
-            "O número de dias deve ser maior que zero."
+    def team_history(self, team_id, cutoff):
+        start = cutoff.date() - timedelta(
+            days=self.settings.history_days
         )
 
-    if days > 30:
-        raise ValueError(
-            "O período máximo permitido é de 30 dias."
-        )
-
-    today = datetime.now(
-        timezone.utc
-    ).date()
-
-    end_date = today + timedelta(
-        days=days
-    )
-
-    all_matches = []
-
-    current_start = today
-
-    while current_start <= end_date:
-
-        current_end = min(
-            current_start + timedelta(days=9),
-            end_date
-        )
-
-        matches = _get_upcoming_matches_window(
-            current_start,
-            current_end,
-            competitions
-        )
-
-        all_matches.extend(matches)
-
-        current_start = current_end + timedelta(days=1)
-
-    formatted_matches = []
-
-    seen_ids = set()
-
-    for match in all_matches:
-
-        match_id = match.get("id")
-
-        if match_id in seen_ids:
-            continue
-
-        seen_ids.add(match_id)
-
-        status = match.get("status")
-
-        # Apenas partidas que ainda irão acontecer
-        if status not in [
-            "SCHEDULED",
-            "TIMED"
-        ]:
-            continue
-
-        home_team = match.get(
-            "homeTeam",
-            {}
-        )
-
-        away_team = match.get(
-            "awayTeam",
-            {}
-        )
-
-        competition = match.get(
-            "competition",
-            {}
-        )
-
-        formatted_matches.append({
-
-            "id": match_id,
-
-            "competition": {
-                "id": competition.get("id"),
-                "name": competition.get("name"),
-                "code": competition.get("code")
+        return self.match_list(
+            f"/teams/{team_id}/matches",
+            {
+                "status": "FINISHED",
+                "dateFrom": start.isoformat(),
+                # dateTo é exclusivo; o corte exato por horário ocorre na análise.
+                "dateTo": (cutoff.date() + timedelta(days=1)).isoformat(),
+                "limit": 500,
             },
-
-            "home_team": {
-                "id": home_team.get("id"),
-                "name": home_team.get("name")
-            },
-
-            "away_team": {
-                "id": away_team.get("id"),
-                "name": away_team.get("name")
-            },
-
-            "date": match.get("utcDate"),
-
-            "status": status
-        })
-
-    formatted_matches.sort(
-        key=lambda match: match.get(
-            "date",
-            ""
         )
-    )
 
-    return formatted_matches
-
-
-def get_match(match_id):
-    """
-    Retorna os dados de uma partida específica.
-    """
-
-    return _get(
-        f"/matches/{match_id}"
-    )
-
-
-def get_team_matches(team_id, limit=10):
-    """
-    Retorna as partidas finalizadas de um time.
-    """
-
-    if limit < 1:
-        limit = 1
-
-    if limit > 100:
-        limit = 100
-
-    data = _get(
-        f"/teams/{team_id}/matches",
-        params={
-            "status": "FINISHED",
-            "limit": limit
-        }
-    )
-
-    return data.get(
-        "matches",
-        []
-    )
-
-
-def get_head_to_head(match_id, limit=5):
-    """
-    Retorna os confrontos diretos anteriores da partida.
-    """
-
-    data = _get(
-        f"/matches/{match_id}/head2head",
-        params={
-            "limit": limit
-        }
-    )
-
-    return data
+    def h2h(self, match_id):
+        return self.match_list(
+            f"/matches/{match_id}/head2head",
+            {"limit": 100},
+        )

@@ -1,317 +1,140 @@
-def _get_score(match):
-    """
-    Retorna os gols do mandante e visitante.
-    """
+"""Pure, deterministic calculations. Scores refer to regular time only."""
+from collections import Counter
+from datetime import datetime, timezone
 
-    full_time = match.get(
-        "score",
-        {}
-    ).get(
-        "fullTime",
-        {}
-    )
-
-    home_score = full_time.get("home")
-    away_score = full_time.get("away")
-
-    return home_score, away_score
-
-
-def _get_team_result(match, team_id):
-    """
-    Determina o resultado da partida para o time analisado.
-    """
-
-    home_team_id = match.get(
-        "homeTeam",
-        {}
-    ).get("id")
-
-    away_team_id = match.get(
-        "awayTeam",
-        {}
-    ).get("id")
-
-    home_score, away_score = _get_score(match)
-
-    if home_score is None or away_score is None:
+def parse_date(value):
+    if not isinstance(value, str):
+        return None
+    try:
+        result = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return result.astimezone(timezone.utc) if result.tzinfo else None
+    except ValueError:
         return None
 
-    if team_id == home_team_id:
+def positive_id(value):
+    return type(value) is int and value > 0
 
-        if home_score > away_score:
-            return "W"
+def identity(match):
+    if not isinstance(match, dict) or not positive_id(match.get("id")):
+        return False
+    for field in ("homeTeam", "awayTeam"):
+        team = match.get(field)
+        if not isinstance(team, dict) or not positive_id(team.get("id")):
+            return False
+        if not isinstance(team.get("name"), str) or not team["name"].strip():
+            return False
+    return match["homeTeam"]["id"] != match["awayTeam"]["id"] and parse_date(match.get("utcDate")) is not None
 
-        if home_score == away_score:
-            return "D"
+def score(match):
+    data = match.get("score")
+    if not isinstance(data, dict):
+        return None
+    # fullTime can include extra time/penalties. Never infer a 90-minute score.
+    field = "fullTime" if data.get("duration") == "REGULAR" else "regularTime"
+    values = data.get(field)
+    if not isinstance(values, dict):
+        return None
+    pair = values.get("home"), values.get("away")
+    return pair if all(type(x) is int and x >= 0 for x in pair) else None
 
-        return "L"
-
-    if team_id == away_team_id:
-
-        if away_score > home_score:
-            return "W"
-
-        if away_score == home_score:
-            return "D"
-
-        return "L"
-
-    return None
-
-
-def analyze_team(
-    team_id,
-    team_name,
-    matches
-):
-    """
-    Analisa os últimos 10 jogos de um time.
-    """
-
-    valid_matches = []
-
+def select_matches(matches, team_id, cutoff, limit=10, opponent_id=None, exclude_id=None):
+    reasons = Counter()
+    candidates = {}
+    conflicts = set()
     for match in matches:
-
+        if not identity(match):
+            reasons["invalid_identity_or_date"] += 1
+            continue
+        mid = match["id"]
+        if mid == exclude_id or parse_date(match["utcDate"]) >= cutoff:
+            reasons["outside_cutoff"] += 1
+            continue
+        ids = {match["homeTeam"]["id"], match["awayTeam"]["id"]}
+        if team_id not in ids or (opponent_id is not None and ids != {team_id, opponent_id}):
+            reasons["wrong_teams"] += 1
+            continue
         if match.get("status") != "FINISHED":
+            reasons["not_finished"] += 1
             continue
-
-        home_score, away_score = _get_score(
-            match
-        )
-
-        if home_score is None or away_score is None:
+        if score(match) is None:
+            reasons["invalid_or_missing_regular_time_score"] += 1
             continue
-
-        result = _get_team_result(
-            match,
-            team_id
-        )
-
-        if result is None:
+        competition = match.get("competition")
+        if not isinstance(competition, dict) or not positive_id(competition.get("id")):
+            reasons["missing_competition"] += 1
             continue
-
-        valid_matches.append(match)
-
-    valid_matches.sort(
-        key=lambda match: match.get(
-            "utcDate",
-            ""
-        ),
-        reverse=True
-    )
-
-    last_10 = valid_matches[:10]
-
-    wins = 0
-    draws = 0
-    losses = 0
-
-    goals_scored = 0
-    goals_conceded = 0
-
-    recent_matches = []
-
-    for match in last_10:
-
-        home_team = match.get(
-            "homeTeam",
-            {}
-        )
-
-        away_team = match.get(
-            "awayTeam",
-            {}
-        )
-
-        home_score, away_score = _get_score(
-            match
-        )
-
-        result = _get_team_result(
-            match,
-            team_id
-        )
-
-        if team_id == home_team.get("id"):
-
-            goals_for = home_score
-            goals_against = away_score
-
+        if competition.get("type") not in {"LEAGUE", "LEAGUE_CUP", "CUP", "SUPER_CUP", "PLAYOFFS"}:
+            reasons["unsupported_competition_type"] += 1
+            continue
+        if mid in candidates:
+            old = candidates[mid]
+            fingerprint = lambda m: (m["utcDate"], m["homeTeam"]["id"], m["awayTeam"]["id"], score(m), m["competition"]["id"])
+            if fingerprint(old) != fingerprint(match):
+                conflicts.add(mid)
+                reasons["conflicting_duplicate"] += 1
+            else:
+                reasons["duplicate"] += 1
         else:
+            candidates[mid] = match
+    valid = [m for mid, m in candidates.items() if mid not in conflicts]
+    valid.sort(key=lambda m: (parse_date(m["utcDate"]), m["id"]), reverse=True)
+    selected = valid[:limit]
+    return selected, dict(reasons)
 
-            goals_for = away_score
-            goals_against = home_score
-
-        goals_scored += goals_for
-        goals_conceded += goals_against
-
-        if result == "W":
-            wins += 1
-
-        elif result == "D":
-            draws += 1
-
-        elif result == "L":
-            losses += 1
-
-        recent_matches.append({
-
-            "date": match.get(
-                "utcDate"
-            ),
-
-            "home_team": home_team.get(
-                "name"
-            ),
-
-            "away_team": away_team.get(
-                "name"
-            ),
-
-            "home_score": home_score,
-
-            "away_score": away_score,
-
-            "result": result
-
-        })
-
-    total_matches = len(
-        recent_matches
-    )
-
-    average_goals_scored = 0
-    average_goals_conceded = 0
-
-    if total_matches > 0:
-
-        average_goals_scored = round(
-            goals_scored / total_matches,
-            2
-        )
-
-        average_goals_conceded = round(
-            goals_conceded / total_matches,
-            2
-        )
-
+def format_match(match, team_id):
+    home, away = score(match)
+    at_home = match["homeTeam"]["id"] == team_id
+    gf, ga = (home, away) if at_home else (away, home)
+    season = match.get("season") or {}
     return {
-
-        "team_id": team_id,
-
-        "team": team_name,
-
-        "matches_analyzed": total_matches,
-
-        "wins": wins,
-
-        "draws": draws,
-
-        "losses": losses,
-
-        "goals_scored": goals_scored,
-
-        "goals_conceded": goals_conceded,
-
-        "average_goals_scored":
-            average_goals_scored,
-
-        "average_goals_conceded":
-            average_goals_conceded,
-
-        "form": [
-            match["result"]
-            for match in recent_matches
-        ],
-
-        "last_10": recent_matches
-
+        "id": match["id"], "date": parse_date(match["utcDate"]).isoformat(),
+        "competition": match["competition"],
+        "season": season.get("startDate") if isinstance(season, dict) else None,
+        "home_team": match["homeTeam"]["name"], "away_team": match["awayTeam"]["name"],
+        "home_team_id": match["homeTeam"]["id"], "away_team_id": match["awayTeam"]["id"],
+        "home_score": home, "away_score": away,
+        "venue": "HOME" if at_home else "AWAY",
+        "goals_for": gf, "goals_against": ga,
+        "result": "W" if gf > ga else "D" if gf == ga else "L",
     }
 
+def summarize(rows):
+    n = len(rows)
+    counts = Counter(m["result"] for m in rows)
+    gf = sum(m["goals_for"] for m in rows)
+    ga = sum(m["goals_against"] for m in rows)
+    return {
+        "matches_analyzed": n, "wins": counts["W"], "draws": counts["D"], "losses": counts["L"],
+        "goals_scored": gf if n else None, "goals_conceded": ga if n else None,
+        "average_goals_scored": round(gf / n, 2) if n else None,
+        "average_goals_conceded": round(ga / n, 2) if n else None,
+        "win_percentage": round(100 * counts["W"] / n, 2) if n else None,
+        "draw_percentage": round(100 * counts["D"] / n, 2) if n else None,
+        "loss_percentage": round(100 * counts["L"] / n, 2) if n else None,
+    }
 
-def analyze_head_to_head(data):
-    """
-    Organiza os últimos 5 confrontos diretos.
-    """
+def analyze_team(team_id, team_name, matches, *, cutoff, exclude_id=None):
+    selected, discarded = select_matches(matches, team_id, cutoff, exclude_id=exclude_id)
+    rows = [format_match(m, team_id) for m in selected]
+    return {
+        "team_id": team_id, "team": team_name, **summarize(rows),
+        "form": [r["result"] for r in rows], "last_10": rows,
+        "sample_complete": len(rows) == 10, "discarded": discarded,
+        "home": summarize([r for r in rows if r["venue"] == "HOME"]),
+        "away": summarize([r for r in rows if r["venue"] == "AWAY"]),
+    }
 
-    matches = data.get(
-        "matches",
-        []
-    )
+def analyze_head_to_head(matches, home_id, away_id, *, cutoff, exclude_id=None):
+    selected, discarded = select_matches(matches, home_id, cutoff, limit=5, opponent_id=away_id, exclude_id=exclude_id)
+    rows = [format_match(m, home_id) for m in selected]
+    total = sum(r["home_score"] + r["away_score"] for r in rows)
+    return {
+        "matches": rows, "matches_analyzed": len(rows), "sample_complete": len(rows) == 5,
+        "home_team_wins": sum(r["result"] == "W" for r in rows),
+        "draws": sum(r["result"] == "D" for r in rows),
+        "away_team_wins": sum(r["result"] == "L" for r in rows),
+        "total_goals": total if rows else None,
+        "average_total_goals": round(total / len(rows), 2) if rows else None,
+        "discarded": discarded,
+    }
 
-    valid_matches = []
-
-    for match in matches:
-
-        home_team = match.get(
-            "homeTeam",
-            {}
-        )
-
-        away_team = match.get(
-            "awayTeam",
-            {}
-        )
-
-        home_score, away_score = _get_score(
-            match
-        )
-
-        if (
-            home_score is None
-            or away_score is None
-        ):
-            continue
-
-        valid_matches.append(match)
-
-    valid_matches.sort(
-        key=lambda match: match.get(
-            "utcDate",
-            ""
-        ),
-        reverse=True
-    )
-
-    valid_matches = valid_matches[:5]
-
-    formatted_matches = []
-
-    for match in valid_matches:
-
-        home_team = match.get(
-            "homeTeam",
-            {}
-        )
-
-        away_team = match.get(
-            "awayTeam",
-            {}
-        )
-
-        home_score, away_score = _get_score(
-            match
-        )
-
-        formatted_matches.append({
-
-            "date": match.get(
-                "utcDate"
-            ),
-
-            "home_team": home_team.get(
-                "name"
-            ),
-
-            "away_team": away_team.get(
-                "name"
-            ),
-
-            "home_score": home_score,
-
-            "away_score": away_score
-
-        })
-
-    return formatted_matches

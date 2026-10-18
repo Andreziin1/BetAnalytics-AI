@@ -1,6 +1,5 @@
-streamlit
-requests
-python-dotenv
-pandas
-numpy
-matplotlib
+fastapi==0.143.3
+uvicorn==0.54.0
+requests==2.34.2
+python-dotenv==1.2.4
+
