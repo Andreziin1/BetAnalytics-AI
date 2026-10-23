@@ -1,36 +1,39 @@
+let accessToken = "";
+export const setAccessToken = value => { accessToken = value.trim(); };
 // A chave esportiva permanece somente no backend.
 const base = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
 async function get(path, signal) {
   const controller = new AbortController();
   const abort = () => controller.abort();
-  const timer = setTimeout(abort, 180000);
+  const timer = setTimeout(abort, 190000);
   if (signal?.aborted) abort();
   else signal?.addEventListener('abort', abort, {once: true});
   let response;
   let data;
   try {
-    response = await fetch(base + path, {signal: controller.signal});
+    response = await fetch(base + path, {signal: controller.signal, headers: accessToken ? {Authorization: `Bearer ${accessToken}`} : {}});
     try {
       data = await response.json();
     } catch {
-      throw new Error('O backend não respondeu com dados válidos. Confira o terminal do Uvicorn na porta 8000.');
+      throw new Error('O backend não respondeu com dados válidos. Tente novamente em instantes.');
     }
   } catch (error) {
     if (signal?.aborted) throw new DOMException('Consulta cancelada.', 'AbortError');
     if (controller.signal.aborted) throw new Error('A consulta demorou demais. Tente novamente.');
-    if (error instanceof TypeError) throw new Error('Não foi possível conectar ao servidor. Confira se backend e frontend estão abertos.');
+    if (error instanceof TypeError) throw new Error('Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.');
     throw error;
   } finally {
     clearTimeout(timer);
     signal?.removeEventListener('abort', abort);
   }
   if (!response.ok) {
-    const error = new Error(data.error?.message || 'Não foi possível consultar os dados.');
-    error.code = data.error?.code;
+    const error = new Error(data?.error?.message || 'Não foi possível consultar os dados.');
+    error.code = data?.error?.code;
     error.status = response.status;
     error.retryAfter = response.headers.get('Retry-After');
     throw error;
   }
+  if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Resposta inválida do servidor.');
   return data;
 }
 export const api = {

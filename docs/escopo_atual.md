@@ -1,27 +1,22 @@
-# Escopo vigente após manutenção
+# Escopo vigente — BetAnalytics 1.4
 
-Este documento atualiza os requisitos anteriores e prevalece sobre referências a Streamlit, multiesportes ou interface opcional.
-A V1 final terá backend FastAPI e frontend React com Vite. Nesta entrega a implementação completa de telas permanece para a fase seguinte.
+Exclusivamente futebol e análise descritiva. Não utiliza IA/ML, odds ou previsões.
 
-## Entregue nesta fase
-- Revisão do backend: configuração, imports a partir da raiz, integração, erros seguros, cache e quota local.
-- Regras de seleção e cálculo, datas, duplicatas, nulos, placares e validação de H2H.
-- Resumos de equipe, percentuais descritivos, subgrupos casa/fora e agregados H2H.
-- Avisos por seção e rastreabilidade da origem, horário de coleta e corte.
-- Testes reproduzíveis sem API real.
-- Interface React/Vite para selecionar campeonato e período e listar partidas reais.
-- Documentação de instalação e contrato atualizado.
+## Implementado e validado
+- Backend FastAPI e frontend React/Vite integrados.
+- Até dez jogos válidos por equipe e cinco confrontos diretos, com amostras reais e avisos.
+- Filtros por campeonato, time, data e ordenação; gráficos V/E/D e gols; desempenho casa/fora; históricos.
+- Carregamento, vazio, erro, cancelamento, fallback de escudos e navegação com foco.
+- Acesso por código individual quando configurado; obrigatório em produção.
+- Quotas por usuário/IP, cache e limite preventivo do fornecedor por instância; cooldown em 429.
+- Logs estruturados sem segredos, /health, /ready, /metrics e sonda para monitor externo.
+- BPMN em imagem, vetor e XML editável.
+- Testes automatizados, inspeção em Chromium desktop/celular e validação real da fonte.
 
-## Próxima fase do frontend
-Apresentação da análise, comparação, históricos e avisos de qualidade dos dados.
-O frontend é obrigatório para concluir a V1, mas não está funcionalmente integrado nesta entrega.
+## Preparado, dependente de ambiente
+Vercel/FastAPI, arquivos estáticos na CDN, HTTPS da plataforma e guia de configuração. Requer importar o repositório e cadastrar variáveis; não foi publicado nesta tarefa.
 
-## Fora desta fase
-Previsões probabilísticas, recomendações, ML, outros esportes e deploy público.
-A frequência histórica de vitórias não é uma previsão de vitória futura.
+## Limites assumidos
+Dados, quotas e métricas em memória por instância. Na Vercel há escala automática; para garantir limites globais, implementar cache/quota distribuídos. Códigos são provisionados pelo administrador; não há cadastro público/recuperação de senha. Monitor externo/alertas dependem do serviço do proprietário.
 
-## Critérios
-Testes devem cobrir placares ausentes/inválidos, orientação mandante/visitante, ordenação,
-corte temporal, duplicatas, dados incompletos, H2H e respostas HTTP.
-Disponibilidade e autorização reais do fornecedor exigem validação com a assinatura utilizada.
-
+A amostra H2H pode ter menos de cinco jogos. Nada é preenchido artificialmente. Datas de corte não são snapshots históricos para backtesting.

@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 
 from backend.config import Settings
+from backend.operations import Operations
 from backend.api.football_api import FootballClient, ProviderError, DEFAULT_COMPETITIONS, COMPETITION_NAMES
 from backend.analytics.team_analysis import identity, parse_date, analyze_team, analyze_head_to_head
 
@@ -16,6 +17,8 @@ logger = logging.getLogger("betanalytics")
 
 def create_app(settings=None, client=None, now_fn=None):
     settings = settings or Settings.from_env()
+    if settings.environment == "production" and (not settings.api_key or not settings.access_token_hashes):
+        raise ValueError("Produção exige API_KEY e ACCESS_TOKEN_HASHES configurados.")
     client = client or FootballClient(settings)
     now_fn = now_fn or (lambda: datetime.now(timezone.utc))
 
@@ -24,10 +27,17 @@ def create_app(settings=None, client=None, now_fn=None):
         yield
         client.close()
 
-    app = FastAPI(title="BetAnalytics IA", version="1.1.0",
-                  description="Análise descritiva pré-jogo de futebol. Sem previsões.", lifespan=lifespan)
+    app = FastAPI(title="BetAnalytics", version="1.4.0",
+                  description="Análise descritiva pré-jogo de futebol. Sem previsões.", lifespan=lifespan,
+                  docs_url=None if settings.environment == "production" else "/docs",
+                  redoc_url=None if settings.environment == "production" else "/redoc",
+                  openapi_url=None if settings.environment == "production" else "/openapi.json")
+    operations = Operations(settings)
+    app.state.operations = operations
+    app.middleware("http")(operations.middleware)
     app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins),
-                       allow_methods=["GET"], allow_headers=["Content-Type"], allow_credentials=False)
+                       allow_methods=["GET"], allow_headers=["Content-Type", "Authorization"], allow_credentials=False,
+                       expose_headers=["Retry-After", "X-Request-ID"])
 
     @app.exception_handler(ProviderError)
     async def provider_error(request, error):
@@ -49,11 +59,21 @@ def create_app(settings=None, client=None, now_fn=None):
 
     @app.get("/")
     def root():
-        return {"message": "BetAnalytics IA API", "version": "1.1.0", "docs": "/docs"}
+        return {"message": "BetAnalytics API", "version": "1.4.0", "docs": None if settings.environment == "production" else "/docs"}
 
     @app.get("/health")
     def health():
-        return {"status": "online", "service": "BetAnalytics IA", "api_configured": bool(settings.api_key)}
+        return {"status": "online", "service": "BetAnalytics", "api_configured": bool(settings.api_key), "access_required": bool(settings.access_token_hashes)}
+
+    @app.get("/ready")
+    def ready():
+        # Configuração local apenas; não consome a franquia do fornecedor.
+        return JSONResponse(status_code=200 if settings.api_key else 503,
+                            content={"ready": bool(settings.api_key), "provider_checked": False})
+
+    @app.get("/metrics")
+    def metrics():
+        return operations.snapshot()
 
     @app.get("/competitions")
     def competitions():
@@ -80,6 +100,11 @@ def create_app(settings=None, client=None, now_fn=None):
         cutoff = min(now, parse_date(match["utcDate"]))
         home, away = match["homeTeam"], match["awayTeam"]
         warnings = []
+        def warning_from(error, section):
+            value = {"code": error.code, "section": section, "message": error.message}
+            if error.retry_after:
+                value["retry_after"] = error.retry_after
+            return value
         sources = {"match": match.get("_retrieved_at")}
         results = []
         for side, team in (("home", home), ("away", away)):
@@ -93,7 +118,7 @@ def create_app(settings=None, client=None, now_fn=None):
                 if error.code in {"provider_auth", "not_configured"}:
                     raise
                 result = analyze_team(team["id"], team["name"], [], cutoff=cutoff)
-                warnings.append({"code": error.code, "section": side, "message": error.message})
+                warnings.append(warning_from(error, side))
                 result["available"] = False
             else:
                 result["available"] = True
@@ -112,12 +137,12 @@ def create_app(settings=None, client=None, now_fn=None):
                 raise
             h2h = analyze_head_to_head([], home["id"], away["id"], cutoff=cutoff)
             h2h["available"] = False
-            warnings.append({"code": error.code, "section": "head_to_head", "message": error.message})
+            warnings.append(warning_from(error, "head_to_head"))
         if not h2h["sample_complete"]:
             warnings.append({"code": "insufficient_history", "section": "head_to_head", "message": f'Somente {h2h["matches_analyzed"]} confrontos válidos disponíveis.'})
         for side, result in zip(("home", "away", "head_to_head"), [*results, h2h]):
             if result["discarded"]:
-                warnings.append({"code": "discarded_records", "section": side, "message": "Registros excluídos; consulte discarded."})
+                warnings.append({"code": "discarded_records", "section": side, "message": "Alguns registros não atendiam aos critérios da análise e foram desconsiderados."})
         return {
             "match": {"id": match_id, "date": match["utcDate"], "status": match.get("status"),
                       "competition": match.get("competition"), "home_team": home, "away_team": away},

@@ -1,25 +1,33 @@
 # Frontend React e Vite
-Esta fase inclui a seleção de campeonato e período, seguida da listagem de partidas reais.
-O botão de cada jogo abre o JSON de análise daquela partida; a apresentação visual completa ainda será implementada.
 
-Requer Node 22.12+ (ou Node 24). Na pasta frontend:
+Interface de futebol com seleção de campeonato/período, partidas futuras e análise visual integrada.
+
+Requer Node 22.12+ ou 24. Na pasta frontend:
 ```sh
 npm ci
 npm run dev
+npm test
 npm run build
+npx playwright install chromium
+npm run test:e2e
 ```
-Abra no Chrome o endereço mostrado pelo Vite. Mantenha o backend ativo na porta 8000.
-O endereço padrão da API é `/api`, encaminhado pelo Vite ao backend. Assim a troca automática de porta do frontend não gera bloqueio de CORS.
-Se você já possui frontend/.env com VITE_API_BASE_URL, use `VITE_API_BASE_URL=/api` e reinicie o Vite.
-VITE_API_BASE_URL é público; nunca colocar a chave esportiva no frontend.
-O build estático exige configurar esse encaminhamento na hospedagem, ou definir uma API externa com CORS. Esta entrega permanece local.
+Mantenha o backend na porta 8000. `/api` é encaminhado pelo Vite ao backend, inclusive quando a porta local muda. `npm run preview` também possui proxy local. Na hospedagem estática, configure um proxy ou VITE_API_BASE_URL e CORS no servidor.
+Nunca coloque API_KEY em variáveis VITE_: elas são públicas.
 
-## Próxima fase
-- Análise lado a lado, denominadores, V/E/D e médias.
-- Históricos e H2H, identificado pela propriedade head_to_head.matches.
-- Estados de carregamento, vazio, falha, resultado parcial e cancelamento de requisições.
-- Mostrar warnings, origem, corte temporal e retrieved_at.
-- Tratar null como indisponível; zero é um valor real.
-- Traduzir W/D/L para V/E/D; ordem do mais recente ao mais antigo.
-- Acessibilidade, responsividade e testes de integração visual.
+## Análise
+Clique em Ver análise. A seção abaixo da lista apresenta comparação, gols, médias, forma recente, históricos expansíveis, H2H e qualidade dos dados. Valores null aparecem como Indisponível; zero continua sendo zero. W/D/L é traduzido para V/E/D, do mais recente ao mais antigo. Datas usam Brasília; a janela de busca é definida em datas UTC.
 
+Consultas anteriores são canceladas ao trocar a análise ou iniciar nova busca. O cancelamento interrompe a espera do navegador, mas não garante interromper uma chamada que o backend já enviou ao fornecedor.
+
+## Testes
+`npm test` executa o fluxo em jsdom, com respostas sintéticas explicitamente identificadas em tests/analysis.fixture.json. Cobre busca, análise parcial, histórico, vazio, HTTP 429 e cancelamento. Não substitui teste visual ou acesso ao fornecedor real.
+
+## Funcionalidades 1.3
+Filtros por nome sem acentos e data local, ordenação por proximidade, gráficos V/E/D e médias de gols, detalhamento casa/fora e retorno à lista. Escudos HTTPS inválidos usam iniciais como fallback. Gráficos possuem números textuais; null nunca vira zero.
+
+Acesso por código: quando o backend responde 401, a tela solicita código individual. Ele é enviado em Authorization e mantido somente em memória. API_KEY nunca deve ser digitada nessa tela. Ao recarregar, o código é descartado.
+
+O teste E2E inicia Vite na porta 5179 automaticamente; usa fixtures e Chromium em 1440 e 390 pixels. Não depende de backend ou chave real. PLAYWRIGHT_EXECUTABLE_PATH permite um Chromium já instalado; E2E_BASE_URL permite frontend iniciado. Capturas são opcionais via E2E_SCREENSHOT_DIR e destinadas a QA local.
+
+## Vercel
+O projeto é publicado a partir da raiz com preset FastAPI, não diretamente desta pasta. O script de build gera public/ para a CDN; a API é acessada em /api no mesmo domínio. Não é necessário VITE_API_BASE_URL e nunca se deve usar localhost em produção. A configuração do proxy em vite.config.js é somente para desenvolvimento/preview local.

@@ -47,6 +47,7 @@ class FootballClient:
         self.lock = Lock()
         self.cache = OrderedDict()
         self.calls = deque()
+        self.blocked_until = 0
 
     def close(self):
         self.session.close()
@@ -68,6 +69,10 @@ class FootballClient:
             if cached and now - cached[0] < self.settings.cache_ttl:
                 self.cache.move_to_end(key)
                 return deepcopy(cached[1])
+
+            if now < self.blocked_until:
+                raise ProviderError("rate_limit", "Limite da fonte de dados atingido. Tente novamente.",
+                                    429, max(1, int(self.blocked_until - now) + 1))
 
             while self.calls and now - self.calls[0] >= 60:
                 self.calls.popleft()
@@ -164,6 +169,9 @@ class FootballClient:
                         else 60
                     )
 
+                if retry is not None:
+                    self.blocked_until = self.clock() + retry
+
                 raise ProviderError(
                     code, message, public_status, retry
                 )
@@ -216,15 +224,26 @@ class FootballClient:
         rows = []
         seen = set()
         discarded = 0
+        warnings = []
+        retrieved_at = {}
+        first_error = None
 
         for code in competitions:
-            data = self.match_list(
-                f"/competitions/{code}/matches",
-                {
-                    "dateFrom": start.isoformat(),
-                    "dateTo": end.isoformat(),
-                },
-            )
+            try:
+                data = self.match_list(
+                    f"/competitions/{code}/matches",
+                    {"dateFrom": start.isoformat(), "dateTo": end.isoformat()},
+                )
+            except ProviderError as error:
+                if error.code in {"provider_auth", "not_configured"}:
+                    raise
+                first_error = first_error or error
+                warning = {"code": error.code, "section": code, "message": error.message}
+                if error.retry_after:
+                    warning["retry_after"] = error.retry_after
+                warnings.append(warning)
+                continue
+            retrieved_at[code] = data.get("_retrieved_at")
 
             for match in data["matches"]:
                 if not identity(match):
@@ -236,7 +255,7 @@ class FootballClient:
 
                 if (
                     not isinstance(competition, dict)
-                    or competition.get("code") not in competitions
+                    or competition.get("code") != code
                 ):
                     continue
 
@@ -262,7 +281,11 @@ class FootballClient:
                     }
                 )
 
+        if not retrieved_at and first_error:
+            raise first_error
+
         return {
+            "warnings": warnings, "partial": bool(warnings), "retrieved_at": retrieved_at,
             "matches": sorted(
                 rows,
                 key=lambda match: (match["date"], match["id"]),

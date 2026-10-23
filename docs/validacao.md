@@ -1,17 +1,51 @@
-# Registro de validação
+# Validação — BetAnalytics 1.4 — 23/10/2026
 
-Revisão de 17 de outubro de 2026, a partir do ZIP recebido.
+## Revisão da pasta reenviada — inicialização local
+- Antes da correção: chave do arquivo reconhecida; 81 testes passaram e um falhou porque a simulação Vercel carregava APP_ENV do arquivo local. O erro da máquina do usuário (chave ausente em processo já iniciado) não foi reproduzido com este ZIP.
+- Após a correção: 86 testes backend aprovados, incluindo leitura UTF-8 com BOM, releitura do arquivo, precedência de variáveis e isolamento da configuração Vercel.
+- Um teste de integração DOM e três testes em Chromium aprovados: desktop 1440 px, celular 390 px e autenticação. O teste de cancelamento agora controla a liberação da resposta simulada, sem depender de uma corrida de 300 ms.
+- Iniciador único testado neste ambiente Linux: abriu frontend/backend, confirmou /health e encerrou ambos. Também reconheceu a chave do arquivo mesmo recebendo uma variável API_KEY antiga de exemplo. O wrapper iniciar.cmd não foi executado em Windows neste ambiente.
+- Fluxo real em Chromium, sem respostas simuladas: seleção BSA, 17 partidas, abertura da análise da partida 555052, gráfico visível, HTTP 200 na listagem e análise, nenhum erro JavaScript. A integração usou Vite /api e FastAPI juntos.
+- Consulta real registrada em 23/10/2026, às 13:32:36 de Brasília: dez jogos válidos por equipe e um confronto direto; amostra H2H incompleta sinalizada. A chave foi utilizada pelo backend e não integra este relatório nem o pacote final.
+- Build completo para Vercel aprovado. npm audit --omit=dev: zero vulnerabilidades reportadas nas dependências de produção naquele momento.
+- A implantação hospedada na Vercel ainda não foi executada. Os resultados de dados variam com a disponibilidade e os limites da fonte; não garantem que todas as partidas tenham histórico completo.
 
-- 53 testes automatizados aprovados em Python 3.12. A suíte usa fixtures e mocks; não substitui a integração real.
-- Build do frontend React/Vite aprovado com `npm run build`.
-- Integração HTTP real pelo proxy do Vite na porta 5174: `/api/health` retornou 200; a busca da Premier League para sete dias retornou 200 e seis partidas futuras.
-- Análise real da partida 560604 pelo mesmo proxy: HTTP 200, dez jogos por equipe e dois confrontos diretos. O aviso `insufficient_history` indicou corretamente que o H2H não completou cinco jogos.
-- O `.env` recebido continha um texto de exemplo como chave. O fornecedor respondeu HTTP 400 com indicação de token inválido. Agora o backend reconhece esse erro como autenticação e ignora marcadores comuns de chave de exemplo.
-- Os testes também verificam o corte do histórico por horário, incluindo jogos anteriores no mesmo dia, e o reconhecimento de LEAGUE_CUP como competição oficial.
-- A suíte emitiu um aviso de depreciação Starlette TestClient/httpx, sem falhas.
+As seções seguintes registram a entrega anterior.
 
-O teste de integração usou uma credencial configurada separadamente. Nenhuma credencial acompanha este pacote. Configure sua própria API_KEY no `.env` da raiz.
+## Adaptação para Vercel (1.4)
+- 82 testes backend aprovados, incluindo prefixo /api, autenticação, health público e IP encaminhado somente no ambiente Vercel.
+- Um teste de integração frontend aprovado novamente.
+- Build completo scripts/build_vercel.py concluído, gerando public/index.html e assets.
+- vercel.json validado com Draft7Validator contra o schema oficial. O schema publicado mistura construções de diferentes drafts; sua autovalidação genérica falha em experimentalTriggers, campo não utilizado pelo projeto.
+- Nenhum deploy Vercel foi realizado; é necessário validar um Preview na conta de destino.
 
-Limitações: não foram testadas todas as ligas, assinaturas, carga ou implantação pública. Não foi concluída a validação visual em navegador: o ambiente não disponibilizou Chromium funcional. O build e a comunicação HTTP foram verificados, mas não equivalem a um teste visual ponta a ponta. A tela é um escopo inicial React, com seleção de campeonato, lista de jogos e link para análise em JSON.
+## Evidências da versão anterior (1.3)
+Os resultados abaixo foram obtidos antes da adaptação de hospedagem; não representam um teste online na Vercel.
 
-Uma consulta bem-sucedida não garante disponibilidade futura da API. A quantidade de jogos muda conforme o horário da consulta. Leia README.md para executar localmente.
+## Testes de software
+- Backend: 74 testes aprovados, incluindo acesso, limites por usuário/IP, CORS e ausência de segredos nos logs.
+- Frontend DOM simulado: um teste de integração com múltiplas verificações aprovado.
+- Chromium real 153: três testes aprovados (fluxos desktop 1440 px, celular 390 px e acesso por código).
+- Inspeção visual das capturas desktop/celular realizada; sem transbordamento horizontal da página. Tabelas extensas possuem rolagem própria.
+- Build Vite 7.3.7 concluído.
+- npm audit após dependências finais: zero vulnerabilidades conhecidas reportadas.
+- Auditoria Python realizada na revisão anterior, sem alteração dos requirements nesta versão: nenhuma vulnerabilidade conhecida então reportada. Não equivale a garantia de segurança.
+- BPMN em SVG/PNG inspecionado; XML verificado com parser BPMN.
+
+## Integração real com football-data.org
+Foi usada a credencial já presente no ZIP original, somente em memória. Nenhuma chave integra a entrega.
+
+Busca Premier League: HTTP 200, 10 partidas futuras no momento da consulta.
+Análise da partida 560620: HTTP 200, 10 jogos válidos do mandante, 10 do visitante e 2 H2H. O aviso insufficient_history sinalizou corretamente a amostra H2H abaixo de cinco.
+
+Consulta das nove competições em 2026-10-23T14:39:27.485287+00:00: PL, PD, SA, BL1, FL1, CL, PPL, BSA, DED, sem falhas por competição e 93 partidas no total para sete datas UTC. A existência de acesso não garante quantidade histórica, temporada inteira ou disponibilidade futura. Não foram testadas análises de todas as partidas/ligas.
+
+## Testes do navegador
+As respostas nos testes do navegador são fixtures sintéticas explicitamente identificadas, independentes da validação externa acima. Cobrem filtros de time sem acento, data de Brasília, ordenação, vazio, gráficos, históricos, retorno do foco, erro 429, cancelamento sem resposta tardia e código de acesso sem armazenamento persistente.
+
+## Limitações restantes
+- Docker/Caddy foram removidos na versão 1.4. A configuração Vercel ainda precisa de teste no ambiente hospedado.
+- Nenhum domínio, hospedagem, certificado público ou serviço externo de alertas foi provisionado.
+- Responsividade inspecionada em Chromium, não em dispositivos físicos ou todos os navegadores; auditoria completa por leitor de tela e carga não realizada.
+- Um aviso de depreciação Starlette/httpx permanece na suíte, sem falhas.
+- Cache, limites preventivos e métricas são locais à instância. A Vercel pode criar várias instâncias; não há coordenação distribuída de quotas nesta versão.

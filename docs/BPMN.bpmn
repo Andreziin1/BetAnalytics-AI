@@ -1,0 +1,291 @@
+<?xml version='1.0' encoding='utf-8'?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_BetAnalytics" targetNamespace="https://betanalytics.local/process" exporter="BetAnalytics" exporterVersion="1.3">
+  <bpmn:collaboration id="Collaboration">
+    <bpmn:participant id="AppPool" name="BetAnalytics — análise pré-jogo" processRef="Process" />
+    <bpmn:participant id="ProviderPool" name="football-data.org" />
+    <bpmn:messageFlow id="Message0" sourceRef="list" targetRef="ProviderPool" name="Consulta HTTP" />
+    <bpmn:messageFlow id="Message1" sourceRef="identify" targetRef="ProviderPool" name="Consulta HTTP" />
+  </bpmn:collaboration>
+  <bpmn:process id="Process" name="Análise estatística pré-jogo" isExecutable="false">
+    <bpmn:laneSet id="Lanes">
+      <bpmn:lane id="user" name="USUÁRIO">
+        <bpmn:flowNodeRef>start</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>choose</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>select</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>read</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>end</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="front" name="FRONTEND">
+        <bpmn:flowNodeRef>search</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>show</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>request</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>error</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>errend</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>display</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>emptyend</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>hasgames</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="back" name="BACKEND · FASTAPI">
+        <bpmn:flowNodeRef>list</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>listok</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>identify</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>auth</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>calc</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+    <bpmn:startEvent id="start" name="Início">
+      <bpmn:outgoing>Flow0</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="choose" name="Escolher campeonato e período">
+      <bpmn:incoming>Flow0</bpmn:incoming>
+      <bpmn:outgoing>Flow1</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="search" name="Solicitar partidas">
+      <bpmn:incoming>Flow1</bpmn:incoming>
+      <bpmn:outgoing>Flow2</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="list" name="Consultar partidas na fonte">
+      <bpmn:incoming>Flow2</bpmn:incoming>
+      <bpmn:outgoing>Flow3</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="listok" name="Consulta disponível?">
+      <bpmn:incoming>Flow3</bpmn:incoming>
+      <bpmn:outgoing>Flow4</bpmn:outgoing>
+      <bpmn:outgoing>Flow5</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="show" name="Exibir jogos, vazio ou avisos">
+      <bpmn:incoming>Flow4</bpmn:incoming>
+      <bpmn:outgoing>Flow15</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="select" name="Selecionar partida disponível">
+      <bpmn:outgoing>Flow6</bpmn:outgoing>
+      <bpmn:incoming>Flow17</bpmn:incoming>
+    </bpmn:userTask>
+    <bpmn:serviceTask id="request" name="Solicitar análise">
+      <bpmn:incoming>Flow6</bpmn:incoming>
+      <bpmn:outgoing>Flow7</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="identify" name="Validar partida e consultar históricos / H2H">
+      <bpmn:incoming>Flow7</bpmn:incoming>
+      <bpmn:outgoing>Flow8</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="auth" name="Falha impeditiva?">
+      <bpmn:incoming>Flow8</bpmn:incoming>
+      <bpmn:outgoing>Flow9</bpmn:outgoing>
+      <bpmn:outgoing>Flow11</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:serviceTask id="error" name="Exibir erro e permitir nova tentativa">
+      <bpmn:incoming>Flow5</bpmn:incoming>
+      <bpmn:incoming>Flow9</bpmn:incoming>
+      <bpmn:outgoing>Flow10</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="errend" name="Fim da tentativa">
+      <bpmn:incoming>Flow10</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:serviceTask id="calc" name="Filtrar e calcular amostras disponíveis">
+      <bpmn:incoming>Flow11</bpmn:incoming>
+      <bpmn:outgoing>Flow12</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:serviceTask id="display" name="Exibir comparação, gráficos e limitações">
+      <bpmn:incoming>Flow12</bpmn:incoming>
+      <bpmn:outgoing>Flow13</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:userTask id="read" name="Consultar análise e históricos">
+      <bpmn:incoming>Flow13</bpmn:incoming>
+      <bpmn:outgoing>Flow14</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="end" name="Fim">
+      <bpmn:incoming>Flow14</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:endEvent id="emptyend" name="Sem jogos">
+      <bpmn:incoming>Flow16</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:exclusiveGateway id="hasgames" name="Há jogos?">
+      <bpmn:incoming>Flow15</bpmn:incoming>
+      <bpmn:outgoing>Flow16</bpmn:outgoing>
+      <bpmn:outgoing>Flow17</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:sequenceFlow id="Flow0" sourceRef="start" targetRef="choose" name="" />
+    <bpmn:sequenceFlow id="Flow1" sourceRef="choose" targetRef="search" name="" />
+    <bpmn:sequenceFlow id="Flow2" sourceRef="search" targetRef="list" name="" />
+    <bpmn:sequenceFlow id="Flow3" sourceRef="list" targetRef="listok" name="" />
+    <bpmn:sequenceFlow id="Flow4" sourceRef="listok" targetRef="show" name="Sim" />
+    <bpmn:sequenceFlow id="Flow5" sourceRef="listok" targetRef="error" name="Não" />
+    <bpmn:sequenceFlow id="Flow6" sourceRef="select" targetRef="request" name="" />
+    <bpmn:sequenceFlow id="Flow7" sourceRef="request" targetRef="identify" name="" />
+    <bpmn:sequenceFlow id="Flow8" sourceRef="identify" targetRef="auth" name="" />
+    <bpmn:sequenceFlow id="Flow9" sourceRef="auth" targetRef="error" name="Sim" />
+    <bpmn:sequenceFlow id="Flow10" sourceRef="error" targetRef="errend" name="" />
+    <bpmn:sequenceFlow id="Flow11" sourceRef="auth" targetRef="calc" name="Não" />
+    <bpmn:sequenceFlow id="Flow12" sourceRef="calc" targetRef="display" name="" />
+    <bpmn:sequenceFlow id="Flow13" sourceRef="display" targetRef="read" name="" />
+    <bpmn:sequenceFlow id="Flow14" sourceRef="read" targetRef="end" name="" />
+    <bpmn:sequenceFlow id="Flow15" sourceRef="show" targetRef="hasgames" name="" />
+    <bpmn:sequenceFlow id="Flow16" sourceRef="hasgames" targetRef="emptyend" name="Não" />
+    <bpmn:sequenceFlow id="Flow17" sourceRef="hasgames" targetRef="select" name="Sim" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diagram">
+    <bpmndi:BPMNPlane id="Plane" bpmnElement="Collaboration">
+      <bpmndi:BPMNShape id="Shape_AppPool" bpmnElement="AppPool" isHorizontal="false">
+        <dc:Bounds x="70" y="140" width="1360" height="1090" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_ProviderPool" bpmnElement="ProviderPool" isHorizontal="false">
+        <dc:Bounds x="1510" y="140" width="200" height="1090" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_user" bpmnElement="user" isHorizontal="false">
+        <dc:Bounds x="100" y="140" width="330" height="1090" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_front" bpmnElement="front" isHorizontal="false">
+        <dc:Bounds x="430" y="140" width="400" height="1090" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_back" bpmnElement="back" isHorizontal="false">
+        <dc:Bounds x="830" y="140" width="600" height="1090" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_start" bpmnElement="start">
+        <dc:Bounds x="220.0" y="170.0" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_choose" bpmnElement="choose">
+        <dc:Bounds x="115.0" y="253.0" width="250" height="74" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_search" bpmnElement="search">
+        <dc:Bounds x="495.0" y="253.0" width="250" height="74" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_list" bpmnElement="list">
+        <dc:Bounds x="955.0" y="253.0" width="250" height="74" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_listok" bpmnElement="listok">
+        <dc:Bounds x="1050.0" y="380.0" width="60" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_show" bpmnElement="show">
+        <dc:Bounds x="495.0" y="353.0" width="250" height="74" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_select" bpmnElement="select">
+        <dc:Bounds x="115.0" y="463.0" width="250" height="74" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_request" bpmnElement="request">
+        <dc:Bounds x="495.0" y="533.0" width="250" height="74" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_identify" bpmnElement="identify">
+        <dc:Bounds x="955.0" y="533.0" width="250" height="74" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_auth" bpmnElement="auth">
+        <dc:Bounds x="1050.0" y="700.0" width="60" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_error" bpmnElement="error">
+        <dc:Bounds x="495.0" y="693.0" width="250" height="74" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_errend" bpmnElement="errend">
+        <dc:Bounds x="600.0" y="830.0" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_calc" bpmnElement="calc">
+        <dc:Bounds x="955.0" y="913.0" width="250" height="74" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_display" bpmnElement="display">
+        <dc:Bounds x="495.0" y="1003.0" width="250" height="74" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_read" bpmnElement="read">
+        <dc:Bounds x="115.0" y="1003.0" width="250" height="74" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_end" bpmnElement="end">
+        <dc:Bounds x="220.0" y="1150.0" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_emptyend" bpmnElement="emptyend">
+        <dc:Bounds x="770" y="445" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Shape_hasgames" bpmnElement="hasgames">
+        <dc:Bounds x="600" y="445" width="40" height="40" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Edge_Flow0" bpmnElement="Flow0">
+        <di:waypoint x="240" y="210" />
+        <di:waypoint x="240" y="253" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow1" bpmnElement="Flow1">
+        <di:waypoint x="365" y="290" />
+        <di:waypoint x="495" y="290" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow2" bpmnElement="Flow2">
+        <di:waypoint x="745" y="290" />
+        <di:waypoint x="955" y="290" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow3" bpmnElement="Flow3">
+        <di:waypoint x="1080" y="327" />
+        <di:waypoint x="1080" y="380" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow4" bpmnElement="Flow4">
+        <di:waypoint x="1050" y="410" />
+        <di:waypoint x="900" y="410" />
+        <di:waypoint x="900" y="390" />
+        <di:waypoint x="745" y="390" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow5" bpmnElement="Flow5">
+        <di:waypoint x="1110" y="410" />
+        <di:waypoint x="1370" y="410" />
+        <di:waypoint x="1370" y="670" />
+        <di:waypoint x="760" y="670" />
+        <di:waypoint x="760" y="730" />
+        <di:waypoint x="745" y="730" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow6" bpmnElement="Flow6">
+        <di:waypoint x="365" y="500" />
+        <di:waypoint x="450" y="500" />
+        <di:waypoint x="450" y="570" />
+        <di:waypoint x="495" y="570" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow7" bpmnElement="Flow7">
+        <di:waypoint x="745" y="570" />
+        <di:waypoint x="955" y="570" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow8" bpmnElement="Flow8">
+        <di:waypoint x="1080" y="607" />
+        <di:waypoint x="1080" y="700" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow9" bpmnElement="Flow9">
+        <di:waypoint x="1050" y="730" />
+        <di:waypoint x="745" y="730" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow10" bpmnElement="Flow10">
+        <di:waypoint x="620" y="767" />
+        <di:waypoint x="620" y="830" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow11" bpmnElement="Flow11">
+        <di:waypoint x="1080" y="760" />
+        <di:waypoint x="1080" y="913" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow12" bpmnElement="Flow12">
+        <di:waypoint x="1080" y="987" />
+        <di:waypoint x="1080" y="1040" />
+        <di:waypoint x="745" y="1040" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow13" bpmnElement="Flow13">
+        <di:waypoint x="495" y="1040" />
+        <di:waypoint x="365" y="1040" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow14" bpmnElement="Flow14">
+        <di:waypoint x="240" y="1077" />
+        <di:waypoint x="240" y="1150" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow15" bpmnElement="Flow15">
+        <di:waypoint x="620" y="427" />
+        <di:waypoint x="620" y="445" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow16" bpmnElement="Flow16">
+        <di:waypoint x="640" y="465" />
+        <di:waypoint x="770" y="465" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Flow17" bpmnElement="Flow17">
+        <di:waypoint x="600" y="465" />
+        <di:waypoint x="400" y="465" />
+        <di:waypoint x="400" y="500" />
+        <di:waypoint x="365" y="500" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Message0" bpmnElement="Message0">
+        <di:waypoint x="1205" y="290" />
+        <di:waypoint x="1510" y="290" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Edge_Message1" bpmnElement="Message1">
+        <di:waypoint x="1205" y="570" />
+        <di:waypoint x="1510" y="570" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

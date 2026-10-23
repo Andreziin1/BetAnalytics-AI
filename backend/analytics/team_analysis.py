@@ -8,7 +8,7 @@ def parse_date(value):
     try:
         result = datetime.fromisoformat(value.replace("Z", "+00:00"))
         return result.astimezone(timezone.utc) if result.tzinfo else None
-    except ValueError:
+    except (ValueError, OverflowError):
         return None
 
 def positive_id(value):
@@ -68,7 +68,7 @@ def select_matches(matches, team_id, cutoff, limit=10, opponent_id=None, exclude
             continue
         if mid in candidates:
             old = candidates[mid]
-            fingerprint = lambda m: (m["utcDate"], m["homeTeam"]["id"], m["awayTeam"]["id"], score(m), m["competition"]["id"])
+            fingerprint = lambda m: (parse_date(m["utcDate"]), m["homeTeam"]["id"], m["awayTeam"]["id"], score(m), m["competition"]["id"])
             if fingerprint(old) != fingerprint(match):
                 conflicts.add(mid)
                 reasons["conflicting_duplicate"] += 1

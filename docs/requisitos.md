@@ -1,14 +1,14 @@
-# Escopo do Projeto — BetAnalytics IA
+# Escopo do Projeto — BetAnalytics
 
-> Atualização desta fase: frontend obrigatório em React + Vite, entregue apenas como estrutura inicial. Backend revisado nesta entrega. Consulte escopo_atual.md e api.md para regras e contrato vigentes; probabilidades e outros esportes permanecem fora da V1.
+> Versão atual: backend e frontend integrados. Consulte escopo_atual.md e api.md. Escopo exclusivamente de futebol e análise descritiva.
 
 ## 1. Nome do projeto
 
-BetAnalytics IA
+BetAnalytics
 
 ## 2. Descrição
 
-O BetAnalytics IA é uma plataforma de análise estatística pré-jogo de futebol baseada em dados históricos de partidas.
+O BetAnalytics é uma plataforma de análise estatística pré-jogo de futebol baseada em dados históricos de partidas.
 
 O sistema tem como objetivo reunir informações recentes das equipes, calcular estatísticas básicas de desempenho e apresentar os dados de forma organizada para auxiliar na análise de uma partida.
 
@@ -34,17 +34,6 @@ Criar um sistema em Python capaz de:
 
 - Futebol
 
-### Futuras versões
-
-- NBA
-- NFL
-- UFC
-- Fórmula 1
-- Tênis
-- NHL
-- Boxe
-- Vôlei
-
 ## 5. Funcionalidades da V1
 
 - Consultar partidas futuras
@@ -65,25 +54,14 @@ Criar um sistema em Python capaz de:
 
 ## 6. Fluxo principal do sistema
 
-```text
-Usuário acessa o BetAnalytics IA
-                ↓
-Sistema consulta partidas futuras
-                ↓
-Usuário seleciona uma partida
-                ↓
-Sistema identifica os dois times
-                ↓
-Busca os últimos 10 jogos de cada time
-                ↓
-Calcula as estatísticas
-                ↓
-Busca os confrontos diretos
-                ↓
-Organiza os últimos 5 confrontos
-                ↓
-API retorna a análise
-                ↓
-Frontend apresenta os dados
-                ↓
-Usuário visualiza a análise
+1. Usuário escolhe campeonato e período e solicita os jogos.
+2. Backend consulta a fonte e devolve partidas disponíveis ou avisos/erros.
+3. Usuário seleciona uma partida.
+4. Backend identifica as equipes, obtém e valida históricos e confrontos.
+5. Calcula indicadores apenas sobre os jogos válidos disponíveis.
+6. Frontend apresenta análise, tamanho da amostra, históricos e limitações.
+
+Ver `fluxo_atual.md` para decisões de erro e disponibilidade parcial.
+
+## Requisitos adicionais implementados na 1.3
+Filtros por time/data, gráficos descritivos, ordenação, responsividade, navegação acessível, fallback de escudos, acesso por código, limites, logs e preparação de implantação. Ver escopo_atual.md para limites e publicacao.md para operação.

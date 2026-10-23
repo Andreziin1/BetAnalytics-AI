@@ -6,8 +6,8 @@ const proxy = {
     target: 'http://127.0.0.1:8000',
     changeOrigin: true,
     rewrite: (path) => path.replace(/^\/api(?=\/|$)/, ''),
-    timeout: 180000,
-    proxyTimeout: 180000,
+    timeout: 190000,
+    proxyTimeout: 190000,
   },
 };
 

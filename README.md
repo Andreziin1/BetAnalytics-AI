@@ -1,8 +1,30 @@
-# BetAnalytics IA
+# BetAnalytics
 
-Análise descritiva pré-jogo de futebol em Python/FastAPI. Nesta fase o backend é implementado e testado; o frontend React/Vite é uma estrutura inicial executável. Não há IA, previsões, recomendações ou outros esportes implementados.
+Análise descritiva pré-jogo de futebol em Python/FastAPI. Backend implementado com frontend React/Vite integrado: busca, comparação de equipes, históricos, confrontos diretos e avisos. Não há IA, previsões, recomendações ou outros esportes implementados.
 
 ## Iniciar no Windows
+
+### Forma recomendada: um único terminal
+
+Preserve seu `.env` da raiz ao atualizar os arquivos. Ele deve conter sua chave real em `API_KEY`; `APP_ENV=local` é opcional no iniciador abaixo. O ZIP de entrega não inclui a credencial.
+
+Na raiz, execute:
+
+```powershell
+.\iniciar.cmd
+```
+
+Ou dê dois cliques em `iniciar.cmd`. Requer Python 3.11+ e Node.js 24 instalados. O iniciador cria `.venv` se necessário, instala dependências ausentes e abre os dois servidores. Não é necessário ativar o ambiente virtual nem alterar a política do PowerShell. Abra http://127.0.0.1:5173 e mantenha esse terminal aberto. Ctrl+C encerra ambos.
+
+Este iniciador usa o `.env` salvo com prioridade sobre valores antigos herdados pelo terminal e fixa o proxy em `/api`. Se faltar a chave, cria um `.env` de exemplo e informa o que preencher. Se as portas 8000 ou 5173 estiverem ocupadas, interrompe sem encerrar processos alheios. Feche o servidor antigo indicado e execute novamente. Após editar o `.env`, reinicie o iniciador.
+
+Para verificar a configuração sem mostrar a chave:
+
+```powershell
+py scripts/start_local.py --check
+```
+
+### Forma manual: dois terminais
 
 Abra o terminal na raiz extraída, onde estão requirements.txt e backend.
 ```powershell
@@ -20,13 +42,13 @@ API: http://127.0.0.1:8000 · documentação interativa: http://127.0.0.1:8000/d
 ```sh
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements-dev.txt
-cp .env.example .env
+[ -f .env ] || cp .env.example .env
 .venv/bin/python -m uvicorn backend.main:app --reload
 ```
 Requer Python 3.11+; validado em Python 3.12. Configure .env antes de consultar dados.
 Execute sempre a partir da raiz; o comando antigo dentro de backend foi substituído.
 
-## Frontend nesta fase
+## Frontend
 Em outro terminal:
 ```sh
 cd frontend
@@ -38,7 +60,7 @@ O frontend usa `/api`, encaminhado pelo Vite para `http://127.0.0.1:8000`.
 Isso funciona mesmo quando o Vite usa 5174 porque 5173 já está ocupada.
 Se existir `frontend/.env`, configure `VITE_API_BASE_URL=/api` e reinicie o Vite.
 Não é necessário criar esse arquivo para uso local. Nunca coloque a chave esportiva no frontend.
-A tela permite selecionar campeonato e período e listar partidas reais. Consulte frontend/README.md.
+A tela permite selecionar campeonato e período, listar partidas e abrir a análise visual. Consulte frontend/README.md.
 
 ## Endpoints
 | Rota GET | Finalidade |
@@ -48,7 +70,7 @@ A tela permite selecionar campeonato e período e listar partidas reais. Consult
 | /matches?days=7&competitions=PL,BSA | Jogos futuros dentro de sete datas UTC, incluindo hoje |
 | /matches/{id}/analysis | Histórico, comparação, H2H, metadados e avisos |
 
-/matches retorna um objeto com matches, discarded, timezone e days.
+/matches retorna matches, discarded, timezone, days, warnings, partial e retrieved_at por campeonato. Falhas isoladas preservam campeonatos disponíveis; falha em todos retorna erro HTTP.
 A análise retorna home_team_analysis, away_team_analysis e head_to_head.
 head_to_head agora é objeto com matches e resumo. Equipes da partida são objetos com id e name.
 Essas mudanças de contrato estão documentadas em docs/api.md.
@@ -79,9 +101,42 @@ CACHE_TTL_SECONDS: 300; cache em memória limitado a 256 respostas.
 API_REQUESTS_PER_MINUTE: 10; ajuste conforme seu plano. É um limite preventivo local, não confirmação de franquia.
 HISTORY_DAYS: 730; janela explícita, não histórico ilimitado.
 CORS_ORIGINS: origens locais explícitas por padrão; configurar a origem real quando houver deploy.
-Uma instância/worker por chave nesta fase: cache e limite não são compartilhados entre processos.
-Sem repetição automática em 429, evitando aumentar consumo; Retry-After orienta o cliente.
+Cache, quotas e métricas são locais à instância; na Vercel a escala automática não compartilha esses estados. Veja docs/publicacao.md.
+Sem repetição automática em 429; novas chamadas externas respeitam o Retry-After do fornecedor. Respostas ainda válidas em cache continuam disponíveis.
 Timeout externo de conexão/leitura: 20/20 segundos por chamada. Sem redirecionamento da chave.
-Sem autenticação de usuário: entrega para execução local; publicação pública requer proteção e quotas por usuário.
+Acesso por códigos individuais disponível via ACCESS_TOKEN_HASHES. APP_ENV=production exige configuração de acesso e chave esportiva. Veja docs/publicacao.md.
 A chave permanece apenas no backend. O ZIP de entrega não contém .env, .git, caches ou node_modules.
 
+
+## Revisão de 23/10/2026
+Veja `REVISAO.md` para mudanças e limitações e `docs/validacao.md` para os testes desta entrega.
+No frontend, `npm test` executa o teste automatizado de interface em DOM simulado.
+O BPMN atualizado está em `docs/BPMN.png`, `docs/BPMN.svg` e `docs/BPMN.bpmn` (editável em ferramentas BPMN).
+Ao atualizar uma pasta existente, mantenha seu `.env` local e reinstale as dependências com `npm ci`. Não copie `node_modules` ou ambientes virtuais entre computadores.
+
+## Funcionalidades da aplicação
+- Filtros locais por time (ignorando acentos) e data de Brasília, ordenação e limpeza.
+- Gráficos de V/E/D e médias de gols, detalhes em casa/fora e retorno com foco ao jogo selecionado.
+- Escudos ausentes/quebrados substituídos por iniciais.
+- Interface e API identificadas como BetAnalytics, sem alegar uso de IA.
+- Acesso opcional local e obrigatório em produção, limites por usuário/IP, logs estruturados e métricas.
+- Implantação preparada para Vercel, com frontend e FastAPI no mesmo projeto; domínio próprio é opcional.
+
+## Testes adicionais
+```sh
+cd frontend
+npx playwright install chromium
+npm run test:e2e
+```
+O teste inicia seu próprio Vite na porta 5179 e usa dados sintéticos. Testa telas de 1440 e 390 pixels e login por código. Pode usar E2E_BASE_URL para um frontend já iniciado.
+
+Na raiz, para testar sua integração real (consome até cinco chamadas):
+```sh
+python scripts/check_live.py --competition PL
+```
+Usa o .env local. Respeite a quota antes de repetir ou testar outra liga. Leia docs/validacao.md para resultados reais desta entrega e docs/publicacao.md para colocar no ar.
+
+## Publicar na Vercel (versão 1.4)
+Use **Framework Preset: FastAPI** e a raiz que contém `app.py` e `vercel.json`, nunca apenas `frontend/`. Não configure Output Directory como frontend/dist. O build é `python scripts/build_vercel.py`.
+Cadastre `API_KEY`, `APP_ENV=production` e `ACCESS_TOKEN_HASHES` nas variáveis de ambiente antes do deploy. Consulte **docs/publicacao.md** para o passo a passo completo, incluindo Preview e limitações serverless.
+Os arquivos Docker/Caddy foram removidos. Se atualizar uma pasta existente, remova manualmente compose.yaml, .dockerignore e deploy/; extrair o ZIP não remove arquivos antigos.

@@ -6,3 +6,9 @@ __pycache__/
 node_modules/
 dist/
 frontend/.env
+
+.vercel/
+public/
+.env.*
+!.env.example
+!frontend/.env.example

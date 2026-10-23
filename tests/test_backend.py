@@ -273,3 +273,71 @@ def test_unknown_exception_is_sanitized():
     assert r.status_code == 500
     assert "private-token" not in r.text
 
+
+# Regressões da revisão 2026-10-23. Dados sintéticos, sem consultas externas.
+def test_equivalent_timezones_are_not_conflicting_duplicates():
+    first = game(date='2026-10-01T12:00:00Z')
+    second = game(date='2026-10-01T09:00:00-03:00')
+    assert analyze([first, second])['matches_analyzed'] == 1
+
+def test_overflow_date_is_discarded():
+    assert parse_date('0001-01-01T00:00:00+23:00') is None
+    assert analyze([game(date='0001-01-01T00:00:00+23:00')])['matches_analyzed'] == 0
+
+def test_multiple_leagues_preserve_successes():
+    client, session = provider()
+    session.get.side_effect = [response(403), response(data={'matches': [game(1, '2026-10-10T18:00:00Z', status='TIMED')]})]
+    data = client.upcoming(7, ('BSA', 'PL'), CUT)
+    assert len(data['matches']) == 1
+    assert data['partial'] and data['warnings'][0]['section'] == 'BSA'
+    assert 'PL' in data['retrieved_at']
+
+def test_multiple_leagues_all_fail_is_not_empty_success():
+    client, session = provider(response(403))
+    with pytest.raises(ProviderError) as error:
+        client.upcoming(7, ('PL', 'BSA'), CUT)
+    assert error.value.code == 'provider_forbidden'
+
+def test_provider_cooldown_and_cached_data():
+    client, session = provider(cache_ttl=300)
+    clock = [0]
+    client.clock = lambda: clock[0]
+    client.get('/cached')
+    reply = response(429)
+    reply.headers = {'Retry-After': '120'}
+    session.get.return_value = reply
+    with pytest.raises(ProviderError):
+        client.get('/limited')
+    assert client.get('/cached')['matches'] == []
+    clock[0] = 61
+    with pytest.raises(ProviderError) as error:
+        client.get('/another')
+    assert error.value.retry_after == 60
+    assert session.get.call_count == 2
+    clock[0] = 121
+    session.get.return_value = response()
+    client.get('/another')
+    assert session.get.call_count == 3
+
+def test_upcoming_rejects_wrong_league_for_requested_endpoint():
+    client, session = provider()
+    row = game(1, '2026-10-10T18:00:00Z', status='TIMED')
+    session.get.side_effect = [response(data={'matches':[row]}), response()]
+    assert client.upcoming(7, ('BSA','PL'), CUT)['matches'] == []
+
+def test_partial_analysis_includes_retry_delay():
+    client = fake_client()
+    client.h2h.side_effect = ProviderError('rate_limit', 'Aguarde.', 429, 32)
+    with TestClient(create_app(Settings(), client, lambda: CUT)) as http:
+        data = http.get('/matches/999/analysis').json()
+    assert any(w.get('retry_after') == 32 for w in data['warnings'])
+
+def test_retry_header_visible_to_cross_origin_clients():
+    with TestClient(create_app(Settings())) as http:
+        r = http.get('/health', headers={'Origin':'http://localhost:5173'})
+    assert 'Retry-After' in r.headers['access-control-expose-headers']
+
+def test_invalid_numeric_setting_names_variable(monkeypatch):
+    monkeypatch.setenv('HISTORY_DAYS', 'abc')
+    with pytest.raises(ValueError, match='HISTORY_DAYS deve ser um número inteiro'):
+        Settings.from_env()
