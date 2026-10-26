@@ -9,7 +9,6 @@ venv
 **/.env
 **/.env.*
 frontend/dist
-public
 tests
 frontend/tests
 docs
