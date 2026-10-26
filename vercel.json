@@ -5,23 +5,44 @@
   "functions": {
     "app.py": {
       "maxDuration": 180,
-      "excludeFiles": "{frontend/**,public/**,tests/**,docs/**,scripts/**,.env,.env.*,**/.env,**/.env.*,**/__pycache__/**,**/.pytest_cache/**,.venv/**,venv/**,node_modules/**,.git/**}"
+      "excludeFiles": "{frontend/**,tests/**,docs/**,scripts/**,.env,.env.*,**/.env,**/.env.*,**/__pycache__/**,**/.pytest_cache/**,.venv/**,venv/**,node_modules/**,.git/**}",
+      "includeFiles": "web_dist/**"
     }
   },
-  "rewrites": [
-    {"source": "/", "destination": "/index.html"}
-  ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        {"key": "X-Content-Type-Options", "value": "nosniff"},
-        {"key": "X-Frame-Options", "value": "DENY"},
-        {"key": "Referrer-Policy", "value": "no-referrer"},
-        {"key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()"},
-        {"key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"}
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+        }
       ]
     },
-    {"source": "/api/(.*)", "headers": [{"key": "Cache-Control", "value": "no-store"}]}
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
+      ]
+    }
   ]
 }

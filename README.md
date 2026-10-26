@@ -140,3 +140,21 @@ Usa o `.env` local. Respeite a quota antes de repetir ou testar outra liga.
 Use **Framework Preset: FastAPI** e a raiz que contém `app.py` e `vercel.json`, nunca apenas `frontend/`. Não configure Output Directory como frontend/dist. O build é `python scripts/build_vercel.py`.
 Cadastre `API_KEY`, `APP_ENV=production` e `ACCESS_TOKEN_HASHES` nas variáveis de ambiente antes do deploy. Na Vercel, mantenha a raiz do projeto como diretório de publicação, use o preset FastAPI e não configure manualmente um Output Directory.
 Os arquivos Docker/Caddy foram removidos. Se atualizar uma pasta existente, remova manualmente compose.yaml, .dockerignore e deploy/; extrair o ZIP não remove arquivos antigos.
+
+### Correção da publicação do frontend
+O build gera `web_dist/` e verifica HTML, favicon e fontes. `app.py` monta esse
+diretório com `StaticFiles` após `/api`; a função inclui `web_dist/**`, permitindo
+servir HTML, CSS, JavaScript e fontes também pelo ASGI. Não há redirecionamento
+para um arquivo sem rota. `frontend/public/` contém fontes e favicon e deve estar
+versionado; somente `/public/` e `/web_dist/` na raiz são artefatos gerados.
+
+Depois de substituir os arquivos na pasta local existente (preservando `.git`):
+
+```powershell
+git add app.py vercel.json .gitignore scripts/build_vercel.py frontend/public tests/test_vercel.py README.md
+git commit -m "Corrige entrega do frontend e inclui fontes na publicacao"
+git push origin main
+```
+
+Aguarde o novo deploy e confira `/` (HTML), `/api/health` (JSON) e uma análise
+após entrar com seu código privado. O status Ready sozinho não valida o site.

@@ -12,15 +12,21 @@ def main():
     frontend = ROOT / 'frontend'
     subprocess.run([npm, 'ci', '--include=dev'], cwd=frontend, check=True)
     subprocess.run([npm, 'run', 'build'], cwd=frontend, check=True)
-    output = ROOT / 'public'
+    required = ['index.html', 'favicon.svg',
+                'fonts/dm-sans-latin-wght-normal.woff2',
+                'fonts/manrope-latin-wght-normal.woff2']
+    for name in required:
+        if not (frontend / 'dist' / name).is_file():
+            raise SystemExit(f'Build incompleto: falta {name}. Confira frontend/public no GitHub.')
+    output = ROOT / 'web_dist'
     marker = output / '.betanalytics-build'
     if output.exists():
         if not marker.is_file():
-            raise SystemExit('public/ já existe e não foi gerado por este script. Preserve seu conteúdo antes do build.')
+            raise SystemExit('web_dist/ já existe e não foi gerado por este script. Preserve seu conteúdo antes do build.')
         shutil.rmtree(output)
     shutil.copytree(frontend / 'dist', output)
     marker.write_text('Diretório gerado por scripts/build_vercel.py. Não editar.\n')
-    print('Frontend preparado em public/; o backend será publicado a partir de app.py.')
+    print('Frontend preparado em web_dist/; o backend será publicado a partir de app.py.')
 
 if __name__ == '__main__':
     main()

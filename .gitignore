@@ -8,7 +8,9 @@ dist/
 frontend/.env
 
 .vercel/
-public/
+/public/
 .env.*
 !.env.example
 !frontend/.env.example
+
+/web_dist/

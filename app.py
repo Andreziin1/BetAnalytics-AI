@@ -1,8 +1,9 @@
 """Entrada ASGI da Vercel. Desenvolvimento tradicional continua em backend.main."""
 import logging
+from pathlib import Path
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from backend.main import app as backend_app
 
 # Logs próprios em JSON no stdout, visíveis nos Runtime Logs da Vercel.
@@ -24,7 +25,6 @@ app = FastAPI(title='BetAnalytics', docs_url=None, redoc_url=None,
               openapi_url=None, lifespan=lifespan)
 app.mount('/api', backend_app)
 
-@app.get('/', include_in_schema=False)
-def frontend():
-    # A regra de plataforma serve public/index.html pela CDN.
-    return RedirectResponse('/index.html', status_code=307)
+# API primeiro; somente os arquivos compilados ficam públicos.
+app.mount('/', StaticFiles(directory=Path(__file__).resolve().parent / 'web_dist',
+                           html=True, check_dir=False), name='frontend')
