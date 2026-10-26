@@ -47,14 +47,14 @@ try {
       await page.getByRole('button',{name:'Ver análise',exact:true}).first().click();
       await page.locator('.goals-chart').waitFor();assert.equal(await page.locator('.stacked-bar').count(),2);
       await page.getByText('Desempenho em casa e fora',{exact:true}).first().click();
-      await page.getByText('Ver histórico de Time 1',{exact:true}).click();
+      await page.getByRole('button',{name:'Últimos jogos',exact:true}).click();
       assert.ok(await page.getByRole('table').first().isVisible());
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false,'A página não pode transbordar horizontalmente');
       if(process.env.E2E_SCREENSHOT_DIR){await mkdir(process.env.E2E_SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:`${process.env.E2E_SCREENSHOT_DIR}/bet-${viewport.width}.png`,fullPage:true});}
       await page.getByRole('button',{name:'Voltar às partidas'}).click();assert.equal(await page.locator('.comparison').count(),0);
       assert.equal(await page.evaluate(()=>document.activeElement.textContent),'Ver análise');
       mode='error';await page.getByRole('button',{name:'Ver análise',exact:true}).first().click();await page.getByRole('alert').waitFor();assert.match(await page.getByRole('alert').innerText(),/30 segundos/);
-      mode='pending';await page.getByRole('button',{name:'Ver análise',exact:true}).first().click();await page.getByRole('button',{name:'Cancelar',exact:true}).click();
+      mode='pending';await page.getByRole('button',{name:'Tentar novamente',exact:true}).click();await page.getByRole('button',{name:'Cancelar',exact:true}).click();
       releasePending?.();
       await page.waitForTimeout(400);assert.equal(await page.locator('.comparison').count(),0,'Consulta cancelada não deve reaparecer');
       mode='empty';await page.getByRole('button',{name:'Buscar jogos',exact:true}).click();await page.getByText('Nenhuma partida futura encontrada.').waitFor();

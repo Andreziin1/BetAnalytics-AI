@@ -1,5 +1,7 @@
 # BetAnalytics
 
+**Atualização visual:** consulte [ATUALIZACAO_VISUAL.md](ATUALIZACAO_VISUAL.md) para mudanças, validação e instruções de instalação.
+
 Análise descritiva pré-jogo de futebol em Python/FastAPI. Backend implementado com frontend React/Vite integrado: busca, comparação de equipes, históricos, confrontos diretos e avisos. Não há IA, previsões, recomendações ou outros esportes implementados.
 
 ## Iniciar no Windows

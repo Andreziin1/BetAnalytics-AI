@@ -1,3 +1,11 @@
+# Validação da atualização visual
+
+Nesta atualização: 86 testes Python aprovados; fluxo de interface DOM aprovado; build de produção/Vercel aprovado; revisão visual em desktop e viewport mobile de 390 px. Foram usados dados sintéticos em ambiente separado para revisão da interface, sem nova consulta ao fornecedor com a chave do usuário. Não houve deploy real. Detalhes em ../ATUALIZACAO_VISUAL.md.
+
+---
+
+## Registros das versões anteriores
+
 # Validação — BetAnalytics 1.4 — 23/10/2026
 
 ## Revisão da pasta reenviada — inicialização local
