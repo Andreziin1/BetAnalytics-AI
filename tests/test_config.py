@@ -8,7 +8,7 @@ import backend.config as config
 def env_file(tmp_path, monkeypatch):
     path = tmp_path / '.env'
     monkeypatch.setattr(config, 'ENV_FILE', path)
-    for name in ('API_KEY', 'APP_ENV', 'VERCEL', 'ACCESS_TOKEN_HASHES'):
+    for name in ('API_KEY', 'APP_ENV', 'VERCEL'):
         monkeypatch.delenv(name, raising=False)
     return path
 

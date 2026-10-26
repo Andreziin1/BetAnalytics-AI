@@ -104,7 +104,7 @@ CORS_ORIGINS: origens locais explícitas por padrão; configurar a origem real q
 Cache, quotas e métricas são locais à instância; na Vercel a escala automática não compartilha esses estados.
 Sem repetição automática em 429; novas chamadas externas respeitam o Retry-After do fornecedor. Respostas ainda válidas em cache continuam disponíveis.
 Timeout externo de conexão/leitura: 20/20 segundos por chamada. Sem redirecionamento da chave.
-Acesso por códigos individuais está disponível via ACCESS_TOKEN_HASHES. APP_ENV=production exige configuração de acesso e chave esportiva.
+O site é público. As consultas são limitadas por IP para reduzir abuso; a chave esportiva permanece somente no backend.
 A chave permanece apenas no backend. O ZIP de entrega não contém .env, .git, caches ou node_modules.
 
 
@@ -119,7 +119,7 @@ Ao atualizar uma pasta existente, mantenha seu `.env` local e reinstale as depen
 - Gráficos de V/E/D e médias de gols, detalhes em casa/fora e retorno com foco ao jogo selecionado.
 - Escudos ausentes/quebrados substituídos por iniciais.
 - Interface e API identificadas como BetAnalytics, sem alegar uso de IA.
-- Acesso opcional local e obrigatório em produção, limites por usuário/IP, logs estruturados e métricas.
+- Acesso público, limite por IP, logs estruturados e métricas.
 - Implantação preparada para Vercel, com frontend e FastAPI no mesmo projeto; domínio próprio é opcional.
 
 ## Testes adicionais
@@ -128,7 +128,7 @@ cd frontend
 npx playwright install chromium
 npm run test:e2e
 ```
-O teste inicia seu próprio Vite na porta 5179 e usa dados sintéticos. Testa telas de 1440 e 390 pixels e login por código. Pode usar E2E_BASE_URL para um frontend já iniciado.
+O teste inicia seu próprio Vite na porta 5179 e usa dados sintéticos. Testa os fluxos principais nas telas de 1440 e 390 pixels. Pode usar E2E_BASE_URL para um frontend já iniciado.
 
 Na raiz, para testar sua integração real (consome até cinco chamadas):
 ```sh
@@ -138,7 +138,7 @@ Usa o `.env` local. Respeite a quota antes de repetir ou testar outra liga.
 
 ## Publicar na Vercel (versão 1.4)
 Use **Framework Preset: FastAPI** e a raiz que contém `app.py` e `vercel.json`, nunca apenas `frontend/`. Não configure Output Directory como frontend/dist. O build é `python scripts/build_vercel.py`.
-Cadastre `API_KEY`, `APP_ENV=production` e `ACCESS_TOKEN_HASHES` nas variáveis de ambiente antes do deploy. Na Vercel, mantenha a raiz do projeto como diretório de publicação, use o preset FastAPI e não configure manualmente um Output Directory.
+Cadastre `API_KEY` e `APP_ENV=production` nas variáveis de ambiente antes do deploy. `ACCESS_TOKEN_HASHES` não é mais usado e pode ser removido da Vercel. Na Vercel, mantenha a raiz do projeto como diretório de publicação, use o preset FastAPI e não configure manualmente um Output Directory.
 Os arquivos Docker/Caddy foram removidos. Se atualizar uma pasta existente, remova manualmente compose.yaml, .dockerignore e deploy/; extrair o ZIP não remove arquivos antigos.
 
 ### Correção da publicação do frontend
@@ -151,10 +151,10 @@ versionado; somente `/public/` e `/web_dist/` na raiz são artefatos gerados.
 Depois de substituir os arquivos na pasta local existente (preservando `.git`):
 
 ```powershell
-git add app.py vercel.json .gitignore scripts/build_vercel.py frontend/public tests/test_vercel.py README.md
-git commit -m "Corrige entrega do frontend e inclui fontes na publicacao"
+git add .
+git commit -m "Libera acesso publico ao BetAnalytics"
 git push origin main
 ```
 
 Aguarde o novo deploy e confira `/` (HTML), `/api/health` (JSON) e uma análise
-após entrar com seu código privado. O status Ready sozinho não valida o site.
+sem solicitar código de acesso. O status Ready sozinho não valida o site.

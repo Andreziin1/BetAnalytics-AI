@@ -64,4 +64,4 @@ Criar um sistema em Python capaz de:
 Ver `fluxo_atual.md` para decisões de erro e disponibilidade parcial.
 
 ## Requisitos adicionais implementados na 1.3
-Filtros por time/data, gráficos descritivos, ordenação, responsividade, navegação acessível, fallback de escudos, acesso por código, limites, logs e preparação de implantação. Ver escopo_atual.md para limites e publicacao.md para operação.
+Filtros por time/data, gráficos descritivos, ordenação, responsividade, navegação acessível, fallback de escudos, acesso público, limite por IP, logs e preparação de implantação.

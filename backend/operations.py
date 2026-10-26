@@ -1,7 +1,6 @@
 """Proteção e observabilidade locais ao processo. Nenhuma credencial nos logs."""
 from collections import OrderedDict, deque, Counter
 from hashlib import sha256
-from hmac import compare_digest
 from threading import Lock
 from time import monotonic
 from uuid import uuid4
@@ -39,18 +38,6 @@ class Operations:
                 self.buckets.popitem(last=False)
             return None
 
-    def user(self, authorization):
-        if not self.settings.access_token_hashes:
-            return None
-        scheme, _, token = authorization.partition(' ')
-        if scheme.lower() != 'bearer' or not token or len(token) > 512:
-            return None
-        digest = sha256(token.encode()).hexdigest()
-        for name, expected in self.settings.access_token_hashes:
-            if compare_digest(digest, expected):
-                return name
-        return None
-
     def snapshot(self):
         with self.lock:
             total = sum(self.counts.values())
@@ -68,8 +55,6 @@ class Operations:
             path = path[len(root_path):] or '/' 
         def error(status, code, message, retry=None):
             headers = {'Retry-After':str(retry)} if retry else {}
-            if status == 401:
-                headers['WWW-Authenticate'] = 'Bearer'
             return JSONResponse(status_code=status, headers=headers, content={'error':{'code':code,'message':message}})
         response = None
         public = path in {'/health','/ready'}
@@ -86,14 +71,6 @@ class Operations:
             retry = self.consume('ip:'+ip, self.settings.client_requests_per_minute)
             if retry:
                 response = error(429,'client_rate_limit','Muitas consultas. Aguarde para tentar novamente.',retry)
-            if response is None and self.settings.access_token_hashes:
-                user = self.user(request.headers.get('authorization',''))
-                if user is None:
-                    response = error(401,'access_required','Informe um código de acesso válido.')
-                else:
-                    retry = self.consume('user:'+user, self.settings.user_requests_per_minute)
-                    if retry:
-                        response = error(429,'user_rate_limit','Limite de consultas do usuário atingido.',retry)
         if response is None:
             try:
                 response = await call_next(request)

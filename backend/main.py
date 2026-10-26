@@ -17,8 +17,8 @@ logger = logging.getLogger("betanalytics")
 
 def create_app(settings=None, client=None, now_fn=None):
     settings = settings or Settings.from_env()
-    if settings.environment == "production" and (not settings.api_key or not settings.access_token_hashes):
-        raise ValueError("Produção exige API_KEY e ACCESS_TOKEN_HASHES configurados.")
+    if settings.environment == "production" and not settings.api_key:
+        raise ValueError("Produção exige API_KEY configurada.")
     client = client or FootballClient(settings)
     now_fn = now_fn or (lambda: datetime.now(timezone.utc))
 
@@ -36,7 +36,7 @@ def create_app(settings=None, client=None, now_fn=None):
     app.state.operations = operations
     app.middleware("http")(operations.middleware)
     app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins),
-                       allow_methods=["GET"], allow_headers=["Content-Type", "Authorization"], allow_credentials=False,
+                       allow_methods=["GET"], allow_headers=["Content-Type"], allow_credentials=False,
                        expose_headers=["Retry-After", "X-Request-ID"])
 
     @app.exception_handler(ProviderError)
@@ -63,7 +63,7 @@ def create_app(settings=None, client=None, now_fn=None):
 
     @app.get("/health")
     def health():
-        return {"status": "online", "service": "BetAnalytics", "api_configured": bool(settings.api_key), "access_required": bool(settings.access_token_hashes)}
+        return {"status": "online", "service": "BetAnalytics", "api_configured": bool(settings.api_key), "public_access": True}
 
     @app.get("/ready")
     def ready():

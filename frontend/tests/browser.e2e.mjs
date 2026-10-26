@@ -61,15 +61,5 @@ try {
       assert.deepEqual(errors,[]);await page.close();
     });
   }
-  await test('acesso por código e falha inicial recuperável',async()=>{
-    const page=await browser.newPage();
-    await page.route('**/api/competitions',route=>route.request().headers()['authorization']==='Bearer synthetic-access'
-      ?route.fulfill({json:{competitions:[{code:'PL',name:'Premier League'}]}})
-      :route.fulfill({status:401,json:{error:{message:'Informe um código de acesso válido.'}}}));
-    await page.goto(url);await page.getByLabel('Código de acesso').fill('synthetic-access');await page.getByRole('button',{name:'Entrar',exact:true}).click();
-    await page.waitForFunction(()=>!document.querySelector('.access-form'));
-    assert.equal(await page.getByRole('button',{name:'Buscar jogos',exact:true}).isEnabled(),true);
-    assert.equal(await page.evaluate(()=>sessionStorage.length+localStorage.length),0,'O código não deve persistir no navegador');
-    await page.close();
-  });
+
 } finally {await browser.close();server?.kill();}

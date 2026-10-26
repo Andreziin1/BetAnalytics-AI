@@ -1,5 +1,3 @@
-let accessToken = "";
-export const setAccessToken = value => { accessToken = value.trim(); };
 // A chave esportiva permanece somente no backend.
 const base = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
 async function get(path, signal) {
@@ -11,7 +9,7 @@ async function get(path, signal) {
   let response;
   let data;
   try {
-    response = await fetch(base + path, {signal: controller.signal, headers: accessToken ? {Authorization: `Bearer ${accessToken}`} : {}});
+    response = await fetch(base + path, {signal: controller.signal});
     try {
       data = await response.json();
     } catch {

@@ -1,6 +1,6 @@
 import React, {useEffect, useMemo, useState, useRef} from 'react';
 import {createRoot} from 'react-dom/client';
-import {api, setAccessToken} from './api';
+import {api} from './api';
 import Analysis, {formatDate, Warnings} from './Analysis';
 import {Icon, Crest, Brand} from './UI';
 import './styles.css';
@@ -23,13 +23,13 @@ function App() {
   const [matches,setMatches]=useState([]), [loading,setLoading]=useState(false), [error,setError]=useState('');
   const [searched,setSearched]=useState(false), [resultCompetition,setResultCompetition]=useState('PL');
   const [teamQuery,setTeamQuery]=useState(''), [dateFilter,setDateFilter]=useState(''), [sort,setSort]=useState('asc');
-  const [reload,setReload]=useState(0), [needsAccess,setNeedsAccess]=useState(false), [token,setToken]=useState('');
+  const [reload,setReload]=useState(0);
   useEffect(()=>()=>{analysisRequest.current?.abort();listRequest.current?.abort();},[]);
   useEffect(()=>{
     const controller=new AbortController();
     setError('');
-    api.competitions(controller.signal).then(data=>{setCompetitions(data.competitions || []);setNeedsAccess(false);}).catch(err=>{
-      if(err.name!=='AbortError'){setError(err.message);if(err.status===401)setNeedsAccess(true);}
+    api.competitions(controller.signal).then(data=>setCompetitions(data.competitions || [])).catch(err=>{
+      if(err.name!=='AbortError')setError(err.message);
     });
     return ()=>controller.abort();
   },[reload]);
@@ -43,14 +43,14 @@ function App() {
     const controller=new AbortController();listRequest.current=controller;
     setAnalysis(null);setAnalysisError('');setAnalysisLoading(false);setWarnings([]);setLoading(true);setError('');setMatches([]);setSearched(false);setTeamQuery('');setDateFilter('');
     try{const data=await api.matches(days,code,controller.signal);if(controller.signal.aborted)return;setWarnings(data.warnings || []);setMatches(data.matches || []);setResultCompetition(code);setSearched(true);}
-    catch(err){if(err.name!=='AbortError'){setError(err.message+(err.retryAfter ? ` Tente novamente em ${err.retryAfter} segundos.` : ''));if(err.status===401)setNeedsAccess(true);}}
+    catch(err){if(err.name!=='AbortError')setError(err.message+(err.retryAfter ? ` Tente novamente em ${err.retryAfter} segundos.` : ''));}
     finally{if(listRequest.current===controller)setLoading(false);}
   }
   async function loadAnalysis(id,event){
     if(event?.currentTarget)selectedButton.current=event.currentTarget;setSelectedMatch(matches.find(m=>m.id===id));setAnalysisOpen(true);analysisRequest.current?.abort();const controller=new AbortController();analysisRequest.current=controller;
     setAnalysis(null);setAnalysisError('');setAnalysisLoading(true);focus(analysisRegion);
     try{const data=await api.analysis(id,controller.signal);if(!controller.signal.aborted)setAnalysis(data);}
-    catch(err){if(err.name!=='AbortError'){setAnalysisError(err.message+(err.retryAfter ? ` Tente novamente em ${err.retryAfter} segundos.` : ''));if(err.status===401)setNeedsAccess(true);}}
+    catch(err){if(err.name!=='AbortError')setAnalysisError(err.message+(err.retryAfter ? ` Tente novamente em ${err.retryAfter} segundos.` : ''));}
     finally{if(analysisRequest.current===controller)setAnalysisLoading(false);}
   }
   const dates=[...new Set(matches.map(m=>brazilDate(m.date)))].sort();
@@ -69,7 +69,6 @@ function App() {
     <div className="workspace">
       <header className="topbar"><a className="mobile-brand brand-link" href="/" aria-label="BetAnalytics início"><Brand/></a><div className="breadcrumb"><Icon name="ball" size={18}/><span>Futebol</span><span>/</span><strong>{analysisOpen?'Análise da partida':'Central de partidas'}</strong></div><span className="timezone"><Icon name="clock" size={15}/>Horário de Brasília</span></header>
       <main id="main-content">
-        {needsAccess && <form className="access-form panel" onSubmit={e=>{e.preventDefault();setAccessToken(token);setToken('');setReload(v=>v+1);}}><Icon name="shield"/><h2>Acesso restrito</h2><p>Use o código de acesso fornecido pelo administrador.</p><label>Código de acesso<input type="password" autoComplete="off" required value={token} onChange={e=>setToken(e.target.value)}/></label><button>Entrar</button></form>}
         <div hidden={analysisOpen}>
           <section className="page-heading"><div><p className="eyebrow">SEU PONTO DE PARTIDA</p><h1>O próximo jogo começa nos dados.</h1><p>Escolha uma partida. Compare os times. Entenda o histórico.</p></div><span className="sport-pill"><Icon name="ball" size={16}/>Futebol</span></section>
           <form className="filters panel" onSubmit={loadMatches}>
@@ -81,7 +80,7 @@ function App() {
           <div className="dashboard-grid">
             <section className="results" ref={resultRegion} tabIndex={-1} aria-label="Partidas disponíveis" aria-live="polite" aria-busy={loading}>
               <Warnings items={warnings}/>
-              {error && <div className="message error" role="alert"><Icon name="info"/><strong>Não foi possível carregar.</strong><span>{error}</span>{!needsAccess && <button className="secondary" onClick={competitions.length ? loadMatches : ()=>setReload(v=>v+1)}>Tentar novamente</button>}</div>}
+              {error && <div className="message error" role="alert"><Icon name="info"/><strong>Não foi possível carregar.</strong><span>{error}</span><button className="secondary" onClick={competitions.length ? loadMatches : ()=>setReload(v=>v+1)}>Tentar novamente</button></div>}
               {loading && <div className="panel loading-panel"><div className="loading-caption" role="status"><span className="spinner"/><div><strong>Buscando partidas...</strong><p>Consultando o calendário da competição.</p></div></div>{[1,2,3,4].map(i=><div className="skeleton-row" key={i}><span/><span/><span/></div>)}<button className="secondary" onClick={()=>{listRequest.current?.abort();setLoading(false);}}>Cancelar busca</button></div>}
               {!error && !loading && matches.length===0 && <div className="panel empty-state"><span className="empty-icon"><Icon name={searched?'calendar':'ball'} size={34}/></span><p className="eyebrow">{searched?'CALENDÁRIO DA COMPETIÇÃO':'TUDO COMEÇA COM UMA PARTIDA'}</p><h2>{searched?'Nenhuma partida futura encontrada.':'Qual jogo vamos analisar?'}</h2><p>{searched?'Tente outro período ou campeonato. A cobertura depende da fonte esportiva.':'Selecione um campeonato e clique em Buscar jogos para explorar as próximas partidas.'}</p><div className="empty-steps"><span><b>01</b> Escolha a liga</span><span><b>02</b> Encontre o jogo</span><span><b>03</b> Compare os dados</span></div></div>}
               {matches.length>0 && <div className="panel matches-panel">
