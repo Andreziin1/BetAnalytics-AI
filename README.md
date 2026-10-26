@@ -1,7 +1,5 @@
 # BetAnalytics
 
-**Atualização visual:** consulte [ATUALIZACAO_VISUAL.md](ATUALIZACAO_VISUAL.md) para mudanças, validação e instruções de instalação.
-
 Análise descritiva pré-jogo de futebol em Python/FastAPI. Backend implementado com frontend React/Vite integrado: busca, comparação de equipes, históricos, confrontos diretos e avisos. Não há IA, previsões, recomendações ou outros esportes implementados.
 
 ## Iniciar no Windows
@@ -62,7 +60,7 @@ O frontend usa `/api`, encaminhado pelo Vite para `http://127.0.0.1:8000`.
 Isso funciona mesmo quando o Vite usa 5174 porque 5173 já está ocupada.
 Se existir `frontend/.env`, configure `VITE_API_BASE_URL=/api` e reinicie o Vite.
 Não é necessário criar esse arquivo para uso local. Nunca coloque a chave esportiva no frontend.
-A tela permite selecionar campeonato e período, listar partidas e abrir a análise visual. Consulte frontend/README.md.
+A tela permite selecionar campeonato e período, listar partidas e abrir a análise visual em uma área dedicada.
 
 ## Endpoints
 | Rota GET | Finalidade |
@@ -75,7 +73,7 @@ A tela permite selecionar campeonato e período, listar partidas e abrir a anál
 /matches retorna matches, discarded, timezone, days, warnings, partial e retrieved_at por campeonato. Falhas isoladas preservam campeonatos disponíveis; falha em todos retorna erro HTTP.
 A análise retorna home_team_analysis, away_team_analysis e head_to_head.
 head_to_head agora é objeto com matches e resumo. Equipes da partida são objetos com id e name.
-Essas mudanças de contrato estão documentadas em docs/api.md.
+Os contratos usados pelo frontend são definidos pelos endpoints FastAPI e validados pela suíte de testes.
 
 ## Regras
 - Até dez jogos válidos por time e cinco H2H, em ordem decrescente de data.
@@ -103,15 +101,15 @@ CACHE_TTL_SECONDS: 300; cache em memória limitado a 256 respostas.
 API_REQUESTS_PER_MINUTE: 10; ajuste conforme seu plano. É um limite preventivo local, não confirmação de franquia.
 HISTORY_DAYS: 730; janela explícita, não histórico ilimitado.
 CORS_ORIGINS: origens locais explícitas por padrão; configurar a origem real quando houver deploy.
-Cache, quotas e métricas são locais à instância; na Vercel a escala automática não compartilha esses estados. Veja docs/publicacao.md.
+Cache, quotas e métricas são locais à instância; na Vercel a escala automática não compartilha esses estados.
 Sem repetição automática em 429; novas chamadas externas respeitam o Retry-After do fornecedor. Respostas ainda válidas em cache continuam disponíveis.
 Timeout externo de conexão/leitura: 20/20 segundos por chamada. Sem redirecionamento da chave.
-Acesso por códigos individuais disponível via ACCESS_TOKEN_HASHES. APP_ENV=production exige configuração de acesso e chave esportiva. Veja docs/publicacao.md.
+Acesso por códigos individuais está disponível via ACCESS_TOKEN_HASHES. APP_ENV=production exige configuração de acesso e chave esportiva.
 A chave permanece apenas no backend. O ZIP de entrega não contém .env, .git, caches ou node_modules.
 
 
 ## Revisão de 23/10/2026
-Veja `REVISAO.md` para mudanças e limitações e `docs/validacao.md` para os testes desta entrega.
+Os requisitos funcionais e não funcionais estão em `docs/requisitos.md`.
 No frontend, `npm test` executa o teste automatizado de interface em DOM simulado.
 O BPMN atualizado está em `docs/BPMN.png`, `docs/BPMN.svg` e `docs/BPMN.bpmn` (editável em ferramentas BPMN).
 Ao atualizar uma pasta existente, mantenha seu `.env` local e reinstale as dependências com `npm ci`. Não copie `node_modules` ou ambientes virtuais entre computadores.
@@ -136,9 +134,9 @@ Na raiz, para testar sua integração real (consome até cinco chamadas):
 ```sh
 python scripts/check_live.py --competition PL
 ```
-Usa o .env local. Respeite a quota antes de repetir ou testar outra liga. Leia docs/validacao.md para resultados reais desta entrega e docs/publicacao.md para colocar no ar.
+Usa o `.env` local. Respeite a quota antes de repetir ou testar outra liga.
 
 ## Publicar na Vercel (versão 1.4)
 Use **Framework Preset: FastAPI** e a raiz que contém `app.py` e `vercel.json`, nunca apenas `frontend/`. Não configure Output Directory como frontend/dist. O build é `python scripts/build_vercel.py`.
-Cadastre `API_KEY`, `APP_ENV=production` e `ACCESS_TOKEN_HASHES` nas variáveis de ambiente antes do deploy. Consulte **docs/publicacao.md** para o passo a passo completo, incluindo Preview e limitações serverless.
+Cadastre `API_KEY`, `APP_ENV=production` e `ACCESS_TOKEN_HASHES` nas variáveis de ambiente antes do deploy. Na Vercel, mantenha a raiz do projeto como diretório de publicação, use o preset FastAPI e não configure manualmente um Output Directory.
 Os arquivos Docker/Caddy foram removidos. Se atualizar uma pasta existente, remova manualmente compose.yaml, .dockerignore e deploy/; extrair o ZIP não remove arquivos antigos.
