@@ -158,3 +158,6 @@ git push origin main
 
 Aguarde o novo deploy e confira `/` (HTML), `/api/health` (JSON) e uma análise
 sem solicitar código de acesso. O status Ready sozinho não valida o site.
+
+
+Indicadores por equipe: ambas marcam e jogos sem sofrer gols (quantidade e percentual da amostra válida), além de média de gols totais (marcados + sofridos). Amostra vazia retorna indisponível. Frequências não representam previsões.

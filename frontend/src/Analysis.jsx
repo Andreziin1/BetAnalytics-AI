@@ -21,6 +21,9 @@ function Team({data, label, team}) {
     ['Vitórias / empates / derrotas', data.matches_analyzed ? `${data.wins} / ${data.draws} / ${data.losses}` : 'Indisponível'],
     ['Gols marcados', number(data.goals_scored)], ['Gols sofridos', number(data.goals_conceded)],
     ['Média de gols marcados', number(data.average_goals_scored)], ['Média de gols sofridos', number(data.average_goals_conceded)],
+    ['Média de gols totais por jogo', number(data.average_total_goals)],
+    ['Ambas marcam', data.both_teams_scored == null ? 'Indisponível' : `${data.both_teams_scored} de ${data.matches_analyzed} jogos (${number(data.both_teams_scored_percentage)}%)`],
+    ['Jogos sem sofrer gols', data.clean_sheets == null ? 'Indisponível' : `${data.clean_sheets} de ${data.matches_analyzed} jogos (${number(data.clean_sheet_percentage)}%)`],
     ['Vitórias no histórico', data.win_percentage == null ? 'Indisponível' : `${number(data.win_percentage)}%`],
   ].map(([name, value]) => <div key={name}><dt>{name}</dt><dd>{value}</dd></div>)}</dl>
     <ResultsChart data={data}/>

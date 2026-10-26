@@ -65,3 +65,6 @@ Ver `fluxo_atual.md` para decisões de erro e disponibilidade parcial.
 
 ## Requisitos adicionais implementados na 1.3
 Filtros por time/data, gráficos descritivos, ordenação, responsividade, navegação acessível, fallback de escudos, acesso público, limite por IP, logs e preparação de implantação.
+
+
+Indicadores por equipe: ambas marcam e jogos sem sofrer gols (quantidade e percentual da amostra válida), além de média de gols totais (marcados + sofridos). Amostra vazia retorna indisponível. Frequências não representam previsões.

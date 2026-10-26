@@ -40,6 +40,11 @@ test('interface: busca, análise parcial, históricos, vazio, erro e cancelament
     assert.equal(document.querySelectorAll('.team-analysis').length,3);
     assert.ok(document.querySelector('.results').closest('[hidden]'),'A lista deve ficar oculta na análise');
     assert.match(document.body.textContent,/1 de 10 jogos/);
+    assert.match(document.body.textContent,/Ambas marcam/);
+    assert.match(document.body.textContent,/1 de 1 jogos \(100%\)/);
+    assert.match(document.body.textContent,/Jogos sem sofrer gols/);
+    assert.match(document.body.textContent,/0 de 1 jogos \(0%\)/);
+    assert.match(document.body.textContent,/Média de gols totais por jogo/);
     click('Últimos jogos'); await waitFor(()=>document.querySelector('table'));
     assert.match(document.body.textContent,/2 × 1/);
     click('Confrontos diretos'); await waitFor(()=>document.querySelector('.h2h-stats'));

@@ -103,7 +103,14 @@ def summarize(rows):
     counts = Counter(m["result"] for m in rows)
     gf = sum(m["goals_for"] for m in rows)
     ga = sum(m["goals_against"] for m in rows)
+    both = sum(m["goals_for"] > 0 and m["goals_against"] > 0 for m in rows)
+    clean = sum(m["goals_against"] == 0 for m in rows)
     return {
+        "both_teams_scored": both if n else None,
+        "both_teams_scored_percentage": round(100 * both / n, 2) if n else None,
+        "clean_sheets": clean if n else None,
+        "clean_sheet_percentage": round(100 * clean / n, 2) if n else None,
+        "average_total_goals": round((gf + ga) / n, 2) if n else None,
         "matches_analyzed": n, "wins": counts["W"], "draws": counts["D"], "losses": counts["L"],
         "goals_scored": gf if n else None, "goals_conceded": ga if n else None,
         "average_goals_scored": round(gf / n, 2) if n else None,
