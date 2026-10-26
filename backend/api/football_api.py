@@ -12,7 +12,7 @@ from backend.analytics.team_analysis import identity, parse_date
 
 
 DEFAULT_COMPETITIONS = (
-    "PL", "PD", "SA", "BL1", "FL1", "CL", "PPL", "BSA", "DED"
+    "PL", "PD", "SA", "BL1", "FL1", "CL", "PPL", "BSA", "DED", "ELC", "EC", "WC"
 )
 
 COMPETITION_NAMES = {
@@ -25,6 +25,9 @@ COMPETITION_NAMES = {
     "PPL": "Primeira Liga",
     "BSA": "Brasileirão Série A",
     "DED": "Eredivisie",
+    "ELC": "Championship",
+    "EC": "Eurocopa",
+    "WC": "Copa do Mundo",
 }
 
 BASE_URL = "https://api.football-data.org/v4"

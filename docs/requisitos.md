@@ -68,3 +68,6 @@ Filtros por time/data, gráficos descritivos, ordenação, responsividade, naveg
 
 
 Indicadores por equipe: ambas marcam e jogos sem sofrer gols (quantidade e percentual da amostra válida), além de média de gols totais (marcados + sofridos). Amostra vazia retorna indisponível. Frequências não representam previsões.
+
+
+Competições disponíveis (plano gratuito): Premier League (PL), La Liga (PD), Serie A italiana (SA), Bundesliga (BL1), Ligue 1 (FL1), Champions League (CL), Primeira Liga (PPL), Brasileirão Série A (BSA), Eredivisie (DED), Championship (ELC), Eurocopa (EC) e Copa do Mundo (WC). Cobertura conferida em 26/10/2026: https://www.football-data.org/coverage. A disponibilidade de partidas e histórico depende do calendário e da fonte. O seletor separa ligas e copas; a barra lateral permite buscar por nome ou código. Cada seleção consulta apenas a competição escolhida.

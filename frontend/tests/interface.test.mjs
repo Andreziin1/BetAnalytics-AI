@@ -8,6 +8,7 @@ import {join} from 'node:path';
 import {tmpdir} from 'node:os';
 
 const fixture = JSON.parse(await readFile(new URL('./analysis.fixture.json', import.meta.url)));
+const competitions = JSON.parse(await readFile(new URL('./competitions.fixture.json', import.meta.url)));
 test('interface: busca, análise parcial, históricos, vazio, erro e cancelamento', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'bet-ui-'));
   const dom = new JSDOM('<div id="root"></div>', {url:'http://localhost', pretendToBeVisual:true, runScripts:'outside-only'});
@@ -16,7 +17,7 @@ test('interface: busca, análise parcial, históricos, vazio, erro e cancelament
     let mode='success'; const requests=[];
     dom.window.fetch = async (url, {signal}) => {
       requests.push(url);
-      if (url.includes('/competitions')) return {ok:true,json:async()=>({competitions:[{code:'PL', name:'Premier League'},{code:'BSA',name:'Brasileirão Série A'}]})};
+      if (url.includes('/competitions')) return {ok:true,json:async()=>competitions};
       if (url.includes('/analysis')) {
         if(mode==='pending') return new Promise((resolve,reject)=>signal.addEventListener('abort',()=>reject(new dom.window.DOMException('cancelado','AbortError'))));
         if(mode==='error') return {ok:false,status:429,headers:{get:()=> '30'},json:async()=>({error:{message:'Limite atingido'}})};
@@ -30,9 +31,22 @@ test('interface: busca, análise parcial, históricos, vazio, erro e cancelament
     const waitFor = async (fn) => {for(let i=0;i<100;i++){if(fn())return;await new Promise(r=>setTimeout(r,10));}assert.fail('Estado esperado não apareceu');};
     const click = (text) => {const el=[...document.querySelectorAll('button')].find(e=>e.textContent===text && !e.closest('[hidden]'));assert.ok(el,text);el.click();};
     await waitFor(()=>document.querySelector('select option')?.textContent==='Premier League');
-    click('Buscar jogos'); await waitFor(()=>document.querySelector('.analysis-button'));
+    assert.equal(document.querySelectorAll('.league-item').length,12);
+    assert.equal(document.querySelectorAll('.filters optgroup').length,2);
+    const search=document.querySelector('.league-search input');
+    Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype,'value').set.call(search,'euro');
+    search.dispatchEvent(new dom.window.Event('input',{bubbles:true}));
+    await waitFor(()=>document.querySelectorAll('.league-item').length===1);
+    assert.match(document.querySelector('.league-item').textContent,/Eurocopa/);
+    document.querySelector('.league-item').click();
+    await waitFor(()=>requests.some(url=>url.includes('competitions=EC')));
+    Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype,'value').set.call(search,'');
+    search.dispatchEvent(new dom.window.Event('input',{bubbles:true}));
+    await waitFor(()=>document.querySelectorAll('.league-item').length===12 && !document.querySelector('.league-item').disabled);
+    document.querySelector('.league-item').click();
+    await waitFor(()=>document.querySelector('.result-heading h2')?.textContent==='Premier League' && document.querySelector('.analysis-button'));
     assert.ok(requests.some(url=>url.includes('competitions=PL')));
-    document.querySelector('.league-item[aria-pressed="false"]').click();
+    [...document.querySelectorAll('.league-item')].find(el=>el.textContent.includes('Brasileirão')).click();
     await waitFor(()=>requests.some(url=>url.includes('competitions=BSA')) && document.querySelector('.result-heading h2')?.textContent==='Brasileirão Série A');
     assert.equal(document.querySelector('.result-heading h2').textContent,'Brasileirão Série A');
     click('Ver análise'); await waitFor(()=>document.querySelector('.comparison'));

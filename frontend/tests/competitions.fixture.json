@@ -1,0 +1,52 @@
+{
+  "competitions": [
+    {
+      "code": "PL",
+      "name": "Premier League"
+    },
+    {
+      "code": "PD",
+      "name": "La Liga"
+    },
+    {
+      "code": "SA",
+      "name": "Serie A"
+    },
+    {
+      "code": "BL1",
+      "name": "Bundesliga"
+    },
+    {
+      "code": "FL1",
+      "name": "Ligue 1"
+    },
+    {
+      "code": "CL",
+      "name": "Champions League"
+    },
+    {
+      "code": "PPL",
+      "name": "Primeira Liga"
+    },
+    {
+      "code": "BSA",
+      "name": "Brasileirão Série A"
+    },
+    {
+      "code": "DED",
+      "name": "Eredivisie"
+    },
+    {
+      "code": "ELC",
+      "name": "Championship"
+    },
+    {
+      "code": "EC",
+      "name": "Eurocopa"
+    },
+    {
+      "code": "WC",
+      "name": "Copa do Mundo"
+    }
+  ]
+}

@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import {readFile, mkdir} from 'node:fs/promises';
 import {chromium} from 'playwright';
 const fixture=JSON.parse(await readFile(new URL('./analysis.fixture.json',import.meta.url)));
+const competitions=JSON.parse(await readFile(new URL('./competitions.fixture.json',import.meta.url)));
 const url=process.env.E2E_BASE_URL || 'http://127.0.0.1:5179';
 const server=process.env.E2E_BASE_URL ? null : spawn(process.execPath,['node_modules/vite/bin/vite.js','--host','127.0.0.1','--port','5179','--strictPort'],{stdio:'ignore'});
 if(server){
@@ -23,7 +24,7 @@ try {
       let mode='success', releasePending;
       await page.route('**/api/**',async route=>{
         const path=new URL(route.request().url()).pathname;
-        if(path.endsWith('/competitions'))return route.fulfill({json:{competitions:[{code:'PL',name:'Premier League'}]}});
+        if(path.endsWith('/competitions'))return route.fulfill({json:competitions});
         if(path.endsWith('/analysis')){
           if(mode==='error')return route.fulfill({status:429,headers:{'Retry-After':'30'},json:{error:{message:'Limite atingido'}}});
           if(mode==='pending'){await new Promise(resolve=>{releasePending=resolve;});return route.fulfill({json:fixture}).catch(()=>{});}
@@ -35,7 +36,7 @@ try {
         ]}});
       });
       await page.route('https://invalid.example/**',r=>r.abort());
-      await page.goto(url);await page.getByRole('button',{name:'Buscar jogos',exact:true}).click();
+      await page.goto(url);await page.locator('.filters select').first().selectOption('WC');await page.getByRole('button',{name:'Buscar jogos',exact:true}).click();
       await page.locator('.match-card').first().waitFor();
       assert.equal(await page.locator('.match-card').count(),2);
       await page.getByLabel('Buscar time').fill('sao paulo');assert.equal(await page.locator('.match-card').count(),1);
@@ -47,6 +48,7 @@ try {
       await page.getByRole('button',{name:'Ver análise',exact:true}).first().click();
       await page.locator('.goals-chart').waitFor();assert.equal(await page.locator('.stacked-bar').count(),2);
       await page.getByText('Desempenho em casa e fora',{exact:true}).first().click();
+      if(process.env.E2E_SCREENSHOT_DIR){await mkdir(process.env.E2E_SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:`${process.env.E2E_SCREENSHOT_DIR}/analysis-${viewport.width}.png`,fullPage:true});}
       await page.getByRole('button',{name:'Últimos jogos',exact:true}).click();
       assert.ok(await page.getByRole('table').first().isVisible());
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false,'A página não pode transbordar horizontalmente');

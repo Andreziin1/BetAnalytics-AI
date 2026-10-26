@@ -11,6 +11,10 @@ export function brazilDate(value) {
   const get = type => parts.find(p => p.type === type).value;
   return `${get('year')}-${get('month')}-${get('day')}`;
 }
+const competitionGroups = [
+  {name:'Ligas nacionais', accepts: code => !['CL','EC','WC'].includes(code)},
+  {name:'Copas internacionais', accepts: code => ['CL','EC','WC'].includes(code)},
+];
 function App() {
   const [analysisOpen,setAnalysisOpen]=useState(false);
   const [selectedMatch,setSelectedMatch]=useState(null);
@@ -24,6 +28,8 @@ function App() {
   const [searched,setSearched]=useState(false), [resultCompetition,setResultCompetition]=useState('PL');
   const [teamQuery,setTeamQuery]=useState(''), [dateFilter,setDateFilter]=useState(''), [sort,setSort]=useState('asc');
   const [reload,setReload]=useState(0);
+  const [leagueQuery,setLeagueQuery]=useState('');
+  const visibleCompetitions=competitions.filter(item=>normalize(`${item.name} ${item.code}`).includes(normalize(leagueQuery)));
   useEffect(()=>()=>{analysisRequest.current?.abort();listRequest.current?.abort();},[]);
   useEffect(()=>{
     const controller=new AbortController();
@@ -63,7 +69,8 @@ function App() {
       <div className="sidebar-section-label">EXPLORAR</div>
       <button className="nav-item active" onClick={closeAnalysis}><Icon name="ball"/>Partidas <span className="nav-dot"/></button>
       <div className="sidebar-section-label league-label">CAMPEONATOS <span>{competitions.length || '—'}</span></div>
-      <nav className="league-nav" aria-label="Selecionar campeonato">{competitions.map(item=><button key={item.code} className={`league-item ${competition===item.code?'selected':''}`} aria-pressed={competition===item.code} onClick={e=>loadMatches(e,item.code)} disabled={loading}><span className="league-monogram">{item.code}</span><span>{item.name}</span>{competition===item.code && <Icon name="chevron" size={14}/>}</button>)}{!competitions.length && <p className="sidebar-hint">Os campeonatos aparecem após conectar ao servidor.</p>}</nav>
+      <label className="league-search">Buscar competição<input type="search" placeholder="Nome ou código..." value={leagueQuery} onChange={e=>setLeagueQuery(e.target.value)}/></label>
+      <nav className="league-nav" aria-label="Selecionar campeonato">{competitionGroups.map(group=><React.Fragment key={group.name}>{visibleCompetitions.some(item=>group.accepts(item.code)) && <span className="league-group-label">{group.name}</span>}{visibleCompetitions.filter(item=>group.accepts(item.code)).map(item=><button key={item.code} className={`league-item ${competition===item.code?'selected':''}`} aria-pressed={competition===item.code} onClick={e=>loadMatches(e,item.code)} disabled={loading}><span className="league-monogram">{item.code}</span><span>{item.name}</span>{competition===item.code && <Icon name="chevron" size={14}/>}</button>)}</React.Fragment>)}{!!competitions.length && !visibleCompetitions.length && <p className="sidebar-hint" role="status">Nenhuma competição encontrada.</p>}{!competitions.length && <p className="sidebar-hint">Os campeonatos aparecem após conectar ao servidor.</p>}</nav>
       <div className="sidebar-bottom"><Icon name="shield"/><strong>Dados, com contexto.</strong><p>Histórico real. Amostras visíveis.<br/>Sem promessas de resultado.</p><span>Fonte · football-data.org</span></div>
     </aside>
     <div className="workspace">
@@ -72,7 +79,7 @@ function App() {
         <div hidden={analysisOpen}>
           <section className="page-heading"><div><p className="eyebrow">SEU PONTO DE PARTIDA</p><h1>O próximo jogo começa nos dados.</h1><p>Escolha uma partida. Compare os times. Entenda o histórico.</p></div><span className="sport-pill"><Icon name="ball" size={16}/>Futebol</span></section>
           <form className="filters panel" onSubmit={loadMatches}>
-            <label>Campeonato<select value={competition} onChange={e=>setCompetition(e.target.value)} disabled={loading || !competitions.length}>{!competitions.length && <option value="PL">Aguardando campeonatos...</option>}{competitions.map(item=><option key={item.code} value={item.code}>{item.name}</option>)}</select></label>
+            <label>Campeonato<select value={competition} onChange={e=>setCompetition(e.target.value)} disabled={loading || !competitions.length}>{!competitions.length && <option value="PL">Aguardando campeonatos...</option>}{competitionGroups.map(group=><optgroup key={group.name} label={group.name}>{competitions.filter(item=>group.accepts(item.code)).map(item=><option key={item.code} value={item.code}>{item.name}</option>)}</optgroup>)}</select></label>
             <label>Período de busca<select value={days} onChange={e=>setDays(Number(e.target.value))} disabled={loading}><option value={3}>Próximos 3 dias</option><option value={7}>Próximos 7 dias</option><option value={14}>Próximos 14 dias</option><option value={30}>Próximos 30 dias</option></select></label>
             <button type="submit" disabled={loading || !competitions.length}><Icon name="search" size={18}/>{loading?'Buscando...':'Buscar jogos'}</button>
           </form>
@@ -82,7 +89,7 @@ function App() {
               <Warnings items={warnings}/>
               {error && <div className="message error" role="alert"><Icon name="info"/><strong>Não foi possível carregar.</strong><span>{error}</span><button className="secondary" onClick={competitions.length ? loadMatches : ()=>setReload(v=>v+1)}>Tentar novamente</button></div>}
               {loading && <div className="panel loading-panel"><div className="loading-caption" role="status"><span className="spinner"/><div><strong>Buscando partidas...</strong><p>Consultando o calendário da competição.</p></div></div>{[1,2,3,4].map(i=><div className="skeleton-row" key={i}><span/><span/><span/></div>)}<button className="secondary" onClick={()=>{listRequest.current?.abort();setLoading(false);}}>Cancelar busca</button></div>}
-              {!error && !loading && matches.length===0 && <div className="panel empty-state"><span className="empty-icon"><Icon name={searched?'calendar':'ball'} size={34}/></span><p className="eyebrow">{searched?'CALENDÁRIO DA COMPETIÇÃO':'TUDO COMEÇA COM UMA PARTIDA'}</p><h2>{searched?'Nenhuma partida futura encontrada.':'Qual jogo vamos analisar?'}</h2><p>{searched?'Tente outro período ou campeonato. A cobertura depende da fonte esportiva.':'Selecione um campeonato e clique em Buscar jogos para explorar as próximas partidas.'}</p><div className="empty-steps"><span><b>01</b> Escolha a liga</span><span><b>02</b> Encontre o jogo</span><span><b>03</b> Compare os dados</span></div></div>}
+              {!error && !loading && matches.length===0 && <div className="panel empty-state"><span className="empty-icon"><Icon name={searched?'calendar':'ball'} size={34}/></span><p className="eyebrow">{searched?'CALENDÁRIO DA COMPETIÇÃO':'TUDO COMEÇA COM UMA PARTIDA'}</p><h2>{searched?'Nenhuma partida futura encontrada.':'Qual jogo vamos analisar?'}</h2><p>{searched?'Não há jogos disponíveis neste período. Tente ampliar a busca ou escolher outra competição. Copas podem ficar meses sem partidas.':'Selecione um campeonato e clique em Buscar jogos para explorar as próximas partidas.'}</p><div className="empty-steps"><span><b>01</b> Escolha a liga</span><span><b>02</b> Encontre o jogo</span><span><b>03</b> Compare os dados</span></div></div>}
               {matches.length>0 && <div className="panel matches-panel">
                 <div className="result-heading"><div><p className="eyebrow">PRÓXIMAS PARTIDAS</p><h2>{selectedName}</h2></div><span className="count-pill">{filtered.length} de {matches.length} jogos</span></div>
                 <div className="local-filters"><label className="search-label"><span>Buscar time</span><div className="input-icon"><Icon name="search" size={17}/><input type="search" placeholder="Buscar por time..." value={teamQuery} onChange={e=>setTeamQuery(e.target.value)}/></div></label><label>Data em Brasília<input type="date" value={dateFilter} onChange={e=>setDateFilter(e.target.value)}/></label><label>Ordenar<select value={sort} onChange={e=>setSort(e.target.value)}><option value="asc">Mais próximas</option><option value="desc">Mais distantes</option></select></label></div>

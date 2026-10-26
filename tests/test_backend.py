@@ -341,3 +341,17 @@ def test_invalid_numeric_setting_names_variable(monkeypatch):
     monkeypatch.setenv('HISTORY_DAYS', 'abc')
     with pytest.raises(ValueError, match='HISTORY_DAYS deve ser um número inteiro'):
         Settings.from_env()
+
+
+@pytest.mark.parametrize("code", ["ELC", "EC", "WC"])
+def test_added_free_competitions_are_selectable(code):
+    client = fake_client()
+    client.upcoming.return_value = {"matches": [], "warnings": []}
+    with TestClient(create_app(Settings(), client)) as http:
+        catalog = http.get("/competitions").json()
+        assert len(catalog["codes"]) == 12
+        assert code in catalog["codes"]
+        response = http.get(f"/matches?days=7&competitions={code}")
+        assert response.status_code == 200
+        assert response.json()["matches"] == []
+    assert client.upcoming.call_args.args[1] == (code,)
